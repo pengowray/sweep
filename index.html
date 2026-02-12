@@ -17,13 +17,13 @@
   </header>
 
   <main class="container">
-    <!-- Preset Bar -->
+    <!-- Signal Preset Bar -->
     <section class="presets-section">
-      <h2 class="section-label">Presets</h2>
-      <div id="presets-bar" class="presets-bar"></div>
+      <h2 class="section-label">Signal Presets</h2>
+      <div id="signal-presets-bar" class="presets-bar"></div>
     </section>
 
-    <!-- Main Controls -->
+    <!-- Signal Controls -->
     <section class="controls-card">
       <div class="controls-grid">
         <!-- Left Column -->
@@ -40,15 +40,13 @@
         </div>
 
         <div class="control-group">
-          <label for="sampleRate">Sample Rate</label>
-          <select id="sampleRate">
-            <option value="44100">44,100 Hz</option>
-            <option value="48000" selected>48,000 Hz</option>
-            <option value="88200">88,200 Hz</option>
-            <option value="96000">96,000 Hz</option>
-            <option value="192000">192,000 Hz</option>
-            <option value="384000">384,000 Hz (not recommended)</option>
-            <option value="768000">768,000 Hz (not recommended)</option>
+          <label for="channelMode">Channels</label>
+          <select id="channelMode">
+            <option value="mono">Mono</option>
+            <option value="stereo-identical">Stereo (identical L+R)</option>
+            <option value="stereo-sync">Stereo (L=signal, R=sync)</option>
+            <option value="stereo-alternate">Stereo Alternate (L→R)</option>
+            <option value="stereo-lrb">Stereo L, R, Both</option>
           </select>
         </div>
 
@@ -65,35 +63,6 @@
         <div class="control-group" id="durationGroup">
           <label for="duration">Duration (seconds)</label>
           <input type="number" id="duration" value="5" min="0.01" max="300" step="any">
-        </div>
-
-        <div class="control-group">
-          <label for="bitDepth">Bit Depth</label>
-          <div class="radio-group">
-            <label class="radio-label">
-              <input type="radio" name="bitDepth" value="16"> 16-bit PCM
-            </label>
-            <label class="radio-label">
-              <input type="radio" name="bitDepth" value="24" checked> 24-bit PCM
-            </label>
-            <label class="radio-label">
-              <input type="radio" name="bitDepth" value="32"> 32-bit Float
-            </label>
-          </div>
-        </div>
-
-        <div class="control-group">
-          <label for="channelMode">Channels</label>
-          <select id="channelMode">
-            <option value="mono">Mono</option>
-            <option value="stereo-identical">Stereo (identical L+R)</option>
-            <option value="stereo-sync">Stereo (L=signal, R=sync)</option>
-          </select>
-        </div>
-
-        <div class="control-group">
-          <label for="outputLevel">Output Level: <span id="outputLevelDisplay">-3</span> dBFS</label>
-          <input type="range" id="outputLevel" min="-60" max="0" value="-3" step="0.1">
         </div>
       </div>
 
@@ -147,6 +116,48 @@
               <option value="logarithmic" selected>Logarithmic</option>
               <option value="linear">Linear</option>
             </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Output Format -->
+    <section class="format-section">
+      <h2 class="section-label">Output Format</h2>
+      <div id="format-presets-bar" class="presets-bar"></div>
+      <div class="controls-card">
+        <div class="controls-grid">
+          <div class="control-group">
+            <label for="sampleRate">Sample Rate</label>
+            <select id="sampleRate">
+              <option value="44100">44,100 Hz</option>
+              <option value="48000" selected>48,000 Hz</option>
+              <option value="88200">88,200 Hz</option>
+              <option value="96000">96,000 Hz</option>
+              <option value="192000">192,000 Hz</option>
+              <option value="384000">384,000 Hz</option>
+              <option value="768000">768,000 Hz</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label>Bit Depth</label>
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="bitDepth" value="16"> 16-bit PCM
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="bitDepth" value="24" checked> 24-bit PCM
+              </label>
+              <label class="radio-label">
+                <input type="radio" name="bitDepth" value="32"> 32-bit Float
+              </label>
+            </div>
+          </div>
+
+          <div class="control-group control-group-full">
+            <label for="outputLevel">Output Level: <span id="outputLevelDisplay">-3.0</span> dBFS <span class="hint">(double-click to reset)</span></label>
+            <input type="range" id="outputLevel" min="-60" max="0" value="-3" step="0.1">
           </div>
         </div>
       </div>

@@ -85,23 +85,11 @@ body {
 .presets-bar {
   display: flex;
   gap: 0.4rem;
-  overflow-x: auto;
+  flex-wrap: wrap;
   padding-bottom: 0.4rem;
-  scrollbar-width: thin;
-  scrollbar-color: var(--bg-input) transparent;
-}
-
-.presets-bar::-webkit-scrollbar {
-  height: 5px;
-}
-
-.presets-bar::-webkit-scrollbar-thumb {
-  background: var(--bg-input);
-  border-radius: 3px;
 }
 
 .preset-btn {
-  flex-shrink: 0;
   background: var(--bg-input);
   color: var(--text);
   border: 1px solid transparent;
@@ -145,6 +133,10 @@ body {
   gap: 0.25rem;
 }
 
+.control-group-full {
+  grid-column: 1 / -1;
+}
+
 .control-group label {
   font-size: 0.78rem;
   font-weight: 500;
@@ -155,6 +147,19 @@ body {
   margin-top: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border);
+}
+
+/* Format section */
+.format-section {
+  margin-bottom: 0.75rem;
+}
+
+.format-section .presets-bar {
+  margin-bottom: 0.5rem;
+}
+
+.format-section .controls-card {
+  margin-bottom: 0;
 }
 
 /* Inputs */

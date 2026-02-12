@@ -147,8 +147,9 @@ function writeSampleData(view, offset, channelData, totalFrames, numChannels, bi
  * @param {number} params.bitDepth - 16, 24, or 32
  * @param {string} params.format - "pcm" or "float"
  * @param {number} params.numChannels - 1 or 2
- * @param {string} [params.channelMode] - "mono", "stereo-identical", "stereo-sync"
- * @param {Float64Array} [params.syncChannel] - For stereo-sync mode
+ * @param {string} [params.channelMode] - "mono", "stereo-identical", "stereo-sync", "stereo-alternate", "stereo-lrb"
+ * @param {Float64Array[]} [params.channels] - Pre-built per-channel arrays (overrides channelMode logic)
+ * @param {Float64Array} [params.syncChannel] - For stereo-sync mode (legacy)
  * @param {object} [params.bwfMetadata] - BWF bext metadata
  * @param {function} [params.onProgress]
  * @returns {ArrayBuffer}
@@ -156,7 +157,7 @@ function writeSampleData(view, offset, channelData, totalFrames, numChannels, bi
 export function encodeWAV(samples, params) {
   const {
     sampleRate, bitDepth, format, numChannels,
-    channelMode, syncChannel, bwfMetadata, onProgress
+    channelMode, channels, syncChannel, bwfMetadata, onProgress
   } = params;
 
   const bytesPerSample = bitDepth / 8;
@@ -167,7 +168,10 @@ export function encodeWAV(samples, params) {
 
   // Prepare channel data arrays
   let channelData;
-  if (numChannels === 1) {
+  if (channels) {
+    // Pre-built channel arrays (from stereo-alternate, stereo-lrb, stereo-sync)
+    channelData = channels;
+  } else if (numChannels === 1) {
     channelData = [samples];
   } else if (channelMode === 'stereo-sync' && syncChannel) {
     channelData = [samples, syncChannel];
@@ -291,6 +295,25 @@ const DEPTH_NAMES = {
 };
 
 /**
+ * Format a frequency for use in filenames: use kHz when divisible by 1000.
+ * e.g. 48000 → "48k", 20000 → "20k", 500 → "500", 44100 → "44.1k"
+ * @param {number} freq
+ * @returns {string}
+ */
+function formatFreqForFilename(freq) {
+  if (freq >= 1000 && freq % 1000 === 0) {
+    return (freq / 1000) + 'k';
+  }
+  if (freq >= 1000) {
+    const kVal = freq / 1000;
+    if (Number.isFinite(kVal) && kVal === Math.round(kVal * 10) / 10) {
+      return kVal + 'k';
+    }
+  }
+  return String(freq);
+}
+
+/**
  * Generate a descriptive filename for the WAV file.
  * Format: {Signal}_{SampleRate}_{FreqRange}_{Duration}_{BitDepth}_{Date}.wav
  * @param {object} params
@@ -299,10 +322,10 @@ const DEPTH_NAMES = {
 export function generateFilename(params) {
   const parts = [];
   parts.push(SIGNAL_NAMES[params.signalType] || params.signalType);
-  parts.push(params.sampleRate + 'Hz');
+  parts.push(formatFreqForFilename(params.sampleRate) + 'Hz');
 
   if (params.startFreq != null && params.endFreq != null) {
-    parts.push(params.startFreq + '-' + params.endFreq + 'Hz');
+    parts.push(formatFreqForFilename(params.startFreq) + '-' + formatFreqForFilename(params.endFreq) + 'Hz');
   }
 
   if (params.signalType === 'mls') {

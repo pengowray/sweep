@@ -197,17 +197,17 @@ export class Visualizer {
     ctx.fillStyle = this._bgColor;
     ctx.fillRect(0, 0, w, h);
 
-    const { startFreq, endFreq, duration, type } = params;
+    const { startFreq, endFreq, type } = params;
     if (!startFreq || !endFreq || startFreq >= endFreq) return;
 
-    const totalDuration = duration +
-      (params.leadSilence || 0) / 1000 +
-      (params.trailSilence || 0) / 1000;
+    const reps = params.repetitions || 1;
+    const singleDuration = params.singleSweepDuration || params.duration;
+    const interSilenceMs = params.interSweepSilence || 0;
+    const sweepDuration = params.duration; // total sweep region duration (already includes reps)
+    const leadMs = params.leadSilence || 0;
+    const trailMs = params.trailSilence || 0;
 
-    const leadFrac = ((params.leadSilence || 0) / 1000) / totalDuration;
-    const sweepFrac = duration / totalDuration;
-    const sweepStartX = leadFrac * w;
-    const sweepEndX = (leadFrac + sweepFrac) * w;
+    const totalDuration = sweepDuration + leadMs / 1000 + trailMs / 1000;
 
     // Log scale for frequency axis
     const logMin = Math.log10(startFreq);
@@ -234,32 +234,43 @@ export class Visualizer {
       ctx.fillText(label, 2, y - 2);
     }
 
-    // Draw frequency trajectory
+    // Draw frequency trajectory for each repetition
     ctx.strokeStyle = this._freqColor;
     ctx.lineWidth = 2;
-    ctx.beginPath();
 
-    const steps = Math.min(w, 500);
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      let freq;
+    const leadSec = leadMs / 1000;
+    const interSilenceSec = interSilenceMs / 1000;
 
-      if (type === 'exponential') {
-        freq = startFreq * Math.pow(endFreq / startFreq, t);
-      } else if (type === 'linear') {
-        freq = startFreq + (endFreq - startFreq) * t;
-      } else {
-        freq = startFreq * Math.pow(endFreq / startFreq, t);
+    for (let r = 0; r < reps; r++) {
+      const repStartSec = leadSec + r * (singleDuration + interSilenceSec);
+      const repEndSec = repStartSec + singleDuration;
+
+      const repStartX = (repStartSec / totalDuration) * w;
+      const repEndX = (repEndSec / totalDuration) * w;
+
+      ctx.beginPath();
+      const steps = Math.min(Math.round(repEndX - repStartX), 500);
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        let freq;
+
+        if (type === 'exponential') {
+          freq = startFreq * Math.pow(endFreq / startFreq, t);
+        } else if (type === 'linear') {
+          freq = startFreq + (endFreq - startFreq) * t;
+        } else {
+          freq = startFreq * Math.pow(endFreq / startFreq, t);
+        }
+
+        const logF = Math.log10(freq);
+        const x = repStartX + t * (repEndX - repStartX);
+        const y = h - margin - (logF - logMin) / (logMax - logMin) * (h - margin * 2);
+
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
       }
-
-      const logF = Math.log10(freq);
-      const x = sweepStartX + t * (sweepEndX - sweepStartX);
-      const y = h - margin - (logF - logMin) / (logMax - logMin) * (h - margin * 2);
-
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+      ctx.stroke();
     }
-    ctx.stroke();
 
     // Time labels
     ctx.fillStyle = this._textColor;

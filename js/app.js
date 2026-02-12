@@ -1,6 +1,6 @@
 // js/app.js — Main controller: UI bindings, state, orchestration
 
-import { PRESETS, applyPreset } from './ui/presets.js';
+import { SIGNAL_PRESETS, FORMAT_PRESETS, applySignalPreset, applyFormatPreset } from './ui/presets.js';
 import { Visualizer } from './ui/visualizer.js';
 import { PreviewPlayer } from './audio/preview.js';
 import { estimateFileSize, formatFileSize, dBFSToLinear, essOneOctaveFadeSamples } from './utils.js';
@@ -8,7 +8,7 @@ import { generateExponentialSweep, generateLinearSweep } from './generators/swee
 import { generateWhiteNoise, generatePinkNoise } from './generators/noise.js';
 import { generateMLS, mlsDuration } from './generators/mls.js';
 import { generateSteppedSine, steppedSineDuration } from './generators/stepped-sine.js';
-import { applyFades, applyGain, addSilence } from './utils.js';
+import { applyFades, applyGain, addSilence, repeatWithSilence } from './utils.js';
 
 // ─── DOM References ───────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -68,7 +68,8 @@ const els = {
   // Canvases
   waveformCanvas: $('waveformCanvas'),
   frequencyCanvas: $('frequencyCanvas'),
-  presetsBar: $('presets-bar'),
+  signalPresetsBar: $('signal-presets-bar'),
+  formatPresetsBar: $('format-presets-bar'),
 };
 
 // ─── Modules ──────────────────────────────────────────────────────
@@ -76,7 +77,16 @@ const visualizer = new Visualizer(els.waveformCanvas, els.frequencyCanvas);
 const previewPlayer = new PreviewPlayer();
 
 let generationWorker = null;
-let activePresetBtn = null;
+let activeSignalPresetBtn = null;
+let activeFormatPresetBtn = null;
+
+// Track auto-set repetitions so we can revert when switching channel modes
+let autoRepsSet = false;
+let prevRepsBeforeAuto = 1;
+
+// Debounce timer for visualization updates
+let vizDebounceTimer = null;
+const VIZ_DEBOUNCE_MS = 300;
 
 // ─── Gather Parameters ───────────────────────────────────────────
 function getParams() {
@@ -186,14 +196,108 @@ function updateFrequencyPlot() {
   const type = els.signalType.value;
   if (!['ess', 'linear', 'stepped'].includes(type)) return;
 
+  const reps = parseInt(els.repetitions.value) || 1;
+  const duration = parseFloat(els.duration.value) || 5;
+  const interSilence = parseFloat(els.interSweepSilence.value) || 0;
+
+  // Total sweep duration accounting for repetitions
+  const totalSweepDuration = reps > 1
+    ? duration * reps + (interSilence / 1000) * (reps - 1)
+    : duration;
+
   visualizer.drawFrequencyPlot({
     startFreq: parseFloat(els.startFreq.value),
     endFreq: parseFloat(els.endFreq.value),
-    duration: parseFloat(els.duration.value) || 5,
+    duration: totalSweepDuration,
     type: type === 'ess' ? 'exponential' : type,
     leadSilence: parseFloat(els.leadSilence.value) || 0,
     trailSilence: parseFloat(els.trailSilence.value) || 0,
+    repetitions: reps,
+    singleSweepDuration: duration,
+    interSweepSilence: interSilence,
   });
+}
+
+// ─── Debounced Visualization Update ──────────────────────────────
+function scheduleVizUpdate() {
+  if (vizDebounceTimer) clearTimeout(vizDebounceTimer);
+  vizDebounceTimer = setTimeout(() => {
+    vizDebounceTimer = null;
+    regenerateVisualization();
+  }, VIZ_DEBOUNCE_MS);
+}
+
+function regenerateVisualization() {
+  // Only regenerate if we're not in the middle of playback
+  if (previewPlayer.isPlaying) return;
+
+  const params = getParams();
+  const previewRate = Math.min(params.sampleRate, 48000);
+
+  let samples;
+  const previewParams = { ...params, sampleRate: previewRate };
+
+  if (params.signalType === 'mls') {
+    previewParams.duration = mlsDuration(params.mlsOrder, previewRate);
+  }
+
+  try {
+    switch (params.signalType) {
+      case 'ess':
+        samples = generateExponentialSweep(previewParams);
+        break;
+      case 'linear':
+        samples = generateLinearSweep(previewParams);
+        break;
+      case 'white':
+        samples = generateWhiteNoise(previewParams);
+        break;
+      case 'pink':
+        samples = generatePinkNoise(previewParams);
+        break;
+      case 'mls':
+        samples = generateMLS({ order: params.mlsOrder, sampleRate: previewRate });
+        break;
+      case 'stepped':
+        samples = generateSteppedSine({ ...previewParams });
+        break;
+    }
+
+    if (!samples) return;
+
+    // Apply fades
+    let fadeInSamples;
+    if (params.fadeInDuration === '1octave' && params.signalType === 'ess') {
+      fadeInSamples = essOneOctaveFadeSamples(
+        params.startFreq, params.endFreq,
+        params.signalType === 'mls' ? previewParams.duration : params.duration,
+        previewRate
+      );
+    } else {
+      fadeInSamples = Math.round(parseFloat(params.fadeInDuration || 0) * previewRate);
+    }
+    const fadeOutSamples = Math.round(parseFloat(params.fadeOutDuration || 0) * previewRate);
+    applyFades(samples, params.fadeInType, fadeInSamples, params.fadeOutType, fadeOutSamples);
+
+    // Gain
+    applyGain(samples, dBFSToLinear(params.outputLevel));
+
+    // Repetitions
+    const reps = params.repetitions || 1;
+    if (reps > 1) {
+      const interSilenceSamples = Math.round((params.interSweepSilence || 0) / 1000 * previewRate);
+      samples = repeatWithSilence(samples, reps, interSilenceSamples);
+    }
+
+    // Silence
+    const leadSamples = Math.round(params.leadSilence / 1000 * previewRate);
+    const trailSamples = Math.round(params.trailSilence / 1000 * previewRate);
+    samples = addSilence(samples, leadSamples, trailSamples);
+
+    visualizer.drawWaveform(samples, previewRate);
+  } catch (e) {
+    // Silently fail — user is probably mid-edit
+  }
 }
 
 // ─── Progress UI ─────────────────────────────────────────────────
@@ -243,7 +347,6 @@ function triggerDownload(buffer, filename) {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  // Revoke after a short delay to ensure download starts
   setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
@@ -276,16 +379,13 @@ function startGeneration() {
   showProgress(true);
   updateProgress(0, 'Starting generation...');
 
-  // Terminate any existing worker
   if (generationWorker) {
     generationWorker.terminate();
   }
 
-  // Try module worker, fall back to main thread
   try {
     generationWorker = new Worker('js/worker.js', { type: 'module' });
   } catch (e) {
-    // Fall back to main-thread generation
     generateOnMainThread(params);
     return;
   }
@@ -309,7 +409,6 @@ function startGeneration() {
         triggerDownload(data.buffer, data.filename);
 
         if (data.inverseBuffer && data.inverseFilename) {
-          // Short delay so browser doesn't block the second download
           setTimeout(() => {
             triggerDownload(data.inverseBuffer, data.inverseFilename);
           }, 500);
@@ -356,7 +455,6 @@ function getProgressLabel(fraction) {
 function generateOnMainThread(params) {
   updateProgress(0.05, 'Generating on main thread...');
 
-  // Use setTimeout to allow UI to update
   setTimeout(() => {
     try {
       let samples;
@@ -399,6 +497,13 @@ function generateOnMainThread(params) {
       // Gain
       applyGain(samples, dBFSToLinear(params.outputLevel));
 
+      // Repetitions
+      const reps = params.repetitions || 1;
+      if (reps > 1) {
+        const interSilenceSamples = Math.round((params.interSweepSilence || 0) / 1000 * params.sampleRate);
+        samples = repeatWithSilence(samples, reps, interSilenceSamples);
+      }
+
       // Silence
       const leadSamples = Math.round(params.leadSilence / 1000 * params.sampleRate);
       const trailSamples = Math.round(params.trailSilence / 1000 * params.sampleRate);
@@ -406,7 +511,6 @@ function generateOnMainThread(params) {
 
       updateProgress(0.6, 'Encoding WAV...');
 
-      // Import wav-encoder dynamically
       import('./audio/wav-encoder.js').then(({ encodeWAV, generateFilename, buildBwfDescription }) => {
         const numChannels = params.channelMode === 'mono' ? 1 : 2;
         const bwfDescription = buildBwfDescription(params);
@@ -430,7 +534,6 @@ function generateOnMainThread(params) {
         triggerDownload(wavBuffer, filename);
         showFileInfo(params, samples.length, wavBuffer.byteLength);
 
-        // Draw waveform
         visualizer.drawWaveform(samples, params.sampleRate);
 
         setTimeout(() => {
@@ -452,13 +555,11 @@ function generateOnMainThread(params) {
 function startPreview() {
   const params = getParams();
 
-  // For preview, generate at a manageable sample rate
   const previewRate = Math.min(params.sampleRate, previewPlayer.nativeSampleRate || 48000);
 
   let samples;
   const previewParams = { ...params, sampleRate: previewRate };
 
-  // For MLS, set duration from order
   if (params.signalType === 'mls') {
     previewParams.duration = mlsDuration(params.mlsOrder, previewRate);
   }
@@ -501,6 +602,13 @@ function startPreview() {
   // Gain
   applyGain(samples, dBFSToLinear(params.outputLevel));
 
+  // Repetitions (was missing before)
+  const reps = params.repetitions || 1;
+  if (reps > 1) {
+    const interSilenceSamples = Math.round((params.interSweepSilence || 0) / 1000 * previewRate);
+    samples = repeatWithSilence(samples, reps, interSilenceSamples);
+  }
+
   // Silence
   const leadSamples = Math.round(params.leadSilence / 1000 * previewRate);
   const trailSamples = Math.round(params.trailSilence / 1000 * previewRate);
@@ -534,20 +642,80 @@ function stopPreview() {
   els.stopBtn.hidden = true;
 }
 
-// ─── Presets ─────────────────────────────────────────────────────
-function renderPresets() {
-  PRESETS.forEach((preset) => {
+// ─── Channel Mode Auto-Repetitions ──────────────────────────────
+function handleChannelModeChange() {
+  const mode = els.channelMode.value;
+  const currentReps = parseInt(els.repetitions.value) || 1;
+
+  if (mode === 'stereo-alternate') {
+    if (currentReps < 2) {
+      prevRepsBeforeAuto = currentReps;
+      els.repetitions.value = 2;
+      autoRepsSet = true;
+      els.repetitions.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  } else if (mode === 'stereo-lrb') {
+    if (currentReps < 3) {
+      prevRepsBeforeAuto = currentReps;
+      els.repetitions.value = 3;
+      autoRepsSet = true;
+      els.repetitions.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  } else {
+    // Switching away from auto-rep modes
+    if (autoRepsSet) {
+      els.repetitions.value = prevRepsBeforeAuto;
+      autoRepsSet = false;
+      els.repetitions.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+}
+
+// ─── Signal Presets ──────────────────────────────────────────────
+function renderSignalPresets() {
+  SIGNAL_PRESETS.forEach((preset) => {
     const btn = document.createElement('button');
     btn.className = 'preset-btn';
     btn.textContent = preset.name;
     btn.title = preset.description;
     btn.addEventListener('click', () => {
-      applyPreset(preset, els);
-      if (activePresetBtn) activePresetBtn.classList.remove('active');
+      const currentSampleRate = parseInt(els.sampleRate.value);
+      applySignalPreset(preset, els, currentSampleRate);
+      if (activeSignalPresetBtn) activeSignalPresetBtn.classList.remove('active');
       btn.classList.add('active');
-      activePresetBtn = btn;
+      activeSignalPresetBtn = btn;
     });
-    els.presetsBar.appendChild(btn);
+    els.signalPresetsBar.appendChild(btn);
+  });
+}
+
+// ─── Format Presets ──────────────────────────────────────────────
+function renderFormatPresets() {
+  FORMAT_PRESETS.forEach((preset) => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn';
+    btn.textContent = preset.name;
+    btn.title = preset.description;
+    btn.addEventListener('click', () => {
+      applyFormatPreset(preset, els);
+      if (activeFormatPresetBtn) activeFormatPresetBtn.classList.remove('active');
+      btn.classList.add('active');
+      activeFormatPresetBtn = btn;
+
+      // Re-resolve any active signal preset that uses 'nyquist'
+      if (activeSignalPresetBtn) {
+        const activeSignalPreset = SIGNAL_PRESETS.find(p =>
+          p.name === activeSignalPresetBtn.textContent
+        );
+        if (activeSignalPreset && activeSignalPreset.endFreq === 'nyquist') {
+          const newRate = parseInt(els.sampleRate.value);
+          els.endFreq.value = Math.floor(newRate / 2);
+          els.endFreq.dispatchEvent(new Event('input', { bubbles: true }));
+          els.endFreq.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+    });
+    els.formatPresetsBar.appendChild(btn);
   });
 }
 
@@ -556,9 +724,25 @@ function bindEvents() {
   // Signal type change
   els.signalType.addEventListener('change', () => {
     updateVisibility();
-    if (activePresetBtn) {
-      activePresetBtn.classList.remove('active');
-      activePresetBtn = null;
+    if (activeSignalPresetBtn) {
+      activeSignalPresetBtn.classList.remove('active');
+      activeSignalPresetBtn = null;
+    }
+    scheduleVizUpdate();
+  });
+
+  // Channel mode change — auto-reps
+  els.channelMode.addEventListener('change', () => {
+    handleChannelModeChange();
+    scheduleVizUpdate();
+  });
+
+  // Track manual repetition changes to disable auto-revert
+  els.repetitions.addEventListener('change', () => {
+    const mode = els.channelMode.value;
+    if (mode === 'stereo-alternate' || mode === 'stereo-lrb') {
+      // If user manually changes reps, don't auto-revert
+      autoRepsSet = false;
     }
   });
 
@@ -567,16 +751,42 @@ function bindEvents() {
     els.outputLevelDisplay.textContent = parseFloat(els.outputLevel.value).toFixed(1);
   });
 
+  // Double-click output level to reset to -3 dBFS
+  els.outputLevel.addEventListener('dblclick', () => {
+    els.outputLevel.value = -3;
+    els.outputLevelDisplay.textContent = '-3.0';
+    els.outputLevel.dispatchEvent(new Event('input', { bubbles: true }));
+    els.outputLevel.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
   // MLS order or sample rate change → update MLS duration
   els.mlsOrder.addEventListener('change', updateVisibility);
-  els.sampleRate.addEventListener('change', updateVisibility);
+  els.sampleRate.addEventListener('change', () => {
+    updateVisibility();
+    // Clear format preset highlight when manually changing sample rate
+    if (activeFormatPresetBtn) {
+      activeFormatPresetBtn.classList.remove('active');
+      activeFormatPresetBtn = null;
+    }
+  });
 
-  // Any control change → update estimate and freq plot
+  // Bit depth change → clear format preset highlight
+  document.querySelectorAll('input[name="bitDepth"]').forEach((radio) => {
+    radio.addEventListener('change', () => {
+      if (activeFormatPresetBtn) {
+        activeFormatPresetBtn.classList.remove('active');
+        activeFormatPresetBtn = null;
+      }
+    });
+  });
+
+  // Any control change → update estimate, freq plot, and debounced viz
   const allInputs = document.querySelectorAll('select, input');
   allInputs.forEach((input) => {
     input.addEventListener('change', () => {
       updateEstimatedSize();
       updateFrequencyPlot();
+      scheduleVizUpdate();
     });
     input.addEventListener('input', () => {
       updateEstimatedSize();
@@ -591,7 +801,8 @@ function bindEvents() {
 
 // ─── Initialize ──────────────────────────────────────────────────
 function init() {
-  renderPresets();
+  renderSignalPresets();
+  renderFormatPresets();
   bindEvents();
   updateVisibility();
   updateEstimatedSize();

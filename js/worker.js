@@ -142,12 +142,24 @@ self.onmessage = function (event) {
 
     postProgress(0.60);
 
-    // Phase 7: Prepare channels and encode WAV (60% - 90%)
-    const numChannels = params.channelMode === 'mono' ? 1 : 2;
-    let syncChannel = null;
-    if (params.channelMode === 'stereo-sync') {
-      syncChannel = new Float64Array(samples.length);
-      syncChannel[leadSamples] = linearGain; // sync impulse at sweep start
+    // Phase 7: Build channel data and encode WAV (60% - 90%)
+    const channelMode = params.channelMode || 'mono';
+    const numChannels = channelMode === 'mono' ? 1 : 2;
+    let channels = null; // pre-built channel arrays for new modes
+
+    if (channelMode === 'stereo-sync') {
+      // L = signal, R = sync impulse at sweep start
+      const syncChannel = new Float64Array(samples.length);
+      syncChannel[leadSamples] = linearGain;
+      channels = [samples, syncChannel];
+
+    } else if (channelMode === 'stereo-alternate') {
+      // Alternate L/R per repetition: rep0→L, rep1→R, rep2→L, ...
+      channels = buildAlternateChannels(samples, reps, leadSamples, trailSamples, params);
+
+    } else if (channelMode === 'stereo-lrb') {
+      // L, R, Both cycle per repetition: rep0→L, rep1→R, rep2→Both, rep3→L, ...
+      channels = buildLRBChannels(samples, reps, leadSamples, trailSamples, params);
     }
 
     const bwfDescription = buildBwfDescription(params);
@@ -168,8 +180,8 @@ self.onmessage = function (event) {
       bitDepth: params.bitDepth,
       format: params.format || (params.bitDepth === 32 ? 'float' : 'pcm'),
       numChannels,
-      channelMode: params.channelMode || 'mono',
-      syncChannel,
+      channelMode,
+      channels,
       bwfMetadata,
       onProgress: encodeProgress,
     });
@@ -234,3 +246,81 @@ self.onmessage = function (event) {
     self.postMessage({ type: 'error', message: err.message || String(err) });
   }
 };
+
+/**
+ * Build stereo channels for alternate L/R mode.
+ * Each repetition alternates between L and R channels.
+ * Silence regions (lead/trail/inter-sweep) are zero on both channels.
+ * @returns {Float64Array[]} [leftChannel, rightChannel]
+ */
+function buildAlternateChannels(samples, reps, leadSamples, trailSamples, params) {
+  const totalLen = samples.length;
+  const left = new Float64Array(totalLen);
+  const right = new Float64Array(totalLen);
+
+  if (reps <= 1) {
+    // Single rep: put on L only
+    left.set(samples);
+    return [left, right];
+  }
+
+  // Compute the single-sweep length (before repetition and silence)
+  const sampleRate = params.sampleRate;
+  const interSilenceSamples = Math.round((params.interSweepSilence || 0) / 1000 * sampleRate);
+
+  // Find the per-repetition sweep length from the total
+  // total = lead + (sweepLen * reps + interSilence * (reps-1)) + trail
+  const sweepRegion = totalLen - leadSamples - trailSamples;
+  const sweepLen = reps > 1
+    ? Math.round((sweepRegion - interSilenceSamples * (reps - 1)) / reps)
+    : sweepRegion;
+
+  for (let r = 0; r < reps; r++) {
+    const start = leadSamples + r * (sweepLen + interSilenceSamples);
+    const end = Math.min(start + sweepLen, totalLen);
+    const target = (r % 2 === 0) ? left : right;
+    for (let i = start; i < end; i++) {
+      target[i] = samples[i];
+    }
+  }
+
+  return [left, right];
+}
+
+/**
+ * Build stereo channels for L, R, Both mode.
+ * rep0→L only, rep1→R only, rep2→Both, rep3→L, ...
+ * @returns {Float64Array[]} [leftChannel, rightChannel]
+ */
+function buildLRBChannels(samples, reps, leadSamples, trailSamples, params) {
+  const totalLen = samples.length;
+  const left = new Float64Array(totalLen);
+  const right = new Float64Array(totalLen);
+
+  if (reps <= 1) {
+    left.set(samples);
+    right.set(samples);
+    return [left, right];
+  }
+
+  const sampleRate = params.sampleRate;
+  const interSilenceSamples = Math.round((params.interSweepSilence || 0) / 1000 * sampleRate);
+
+  const sweepRegion = totalLen - leadSamples - trailSamples;
+  const sweepLen = reps > 1
+    ? Math.round((sweepRegion - interSilenceSamples * (reps - 1)) / reps)
+    : sweepRegion;
+
+  for (let r = 0; r < reps; r++) {
+    const start = leadSamples + r * (sweepLen + interSilenceSamples);
+    const end = Math.min(start + sweepLen, totalLen);
+    const phase = r % 3; // 0=L, 1=R, 2=Both
+
+    for (let i = start; i < end; i++) {
+      if (phase === 0 || phase === 2) left[i] = samples[i];
+      if (phase === 1 || phase === 2) right[i] = samples[i];
+    }
+  }
+
+  return [left, right];
+}

@@ -1,47 +1,21 @@
 // js/ui/presets.js — Preset definitions and application logic
 
 /**
- * @typedef {object} Preset
- * @property {string} id
- * @property {string} name
- * @property {string} description
- * @property {string} signalType
- * @property {number} sampleRate
- * @property {number} [startFreq]
- * @property {number} [endFreq]
- * @property {number} [duration]
- * @property {number} [bitDepth]
- * @property {string} [bitFormat]
- * @property {number} leadSilence - ms
- * @property {number} trailSilence - ms
- * @property {number} [outputLevel] - dBFS
- * @property {string} [fadeInType]
- * @property {string} [fadeInDuration]
- * @property {string} [fadeOutType]
- * @property {number|string} [fadeOutDuration]
- * @property {string} [channelMode]
- * @property {number} [repetitions]
- * @property {number} [interSweepSilence] - ms
- * @property {boolean} [generateInverse]
- * @property {number} [mlsOrder]
+ * Signal presets — define signal type, frequency range, duration, timing, fades.
+ * Do NOT include sampleRate, bitDepth, or outputLevel (those belong to format presets).
+ * endFreq: 'nyquist' means half the current sample rate.
  */
-
-/** @type {Preset[]} */
-export const PRESETS = [
+export const SIGNAL_PRESETS = [
   {
     id: 'quick-room',
     name: 'Quick Room Test',
     description: 'Fast ESS sweep for basic room measurement',
     signalType: 'ess',
-    sampleRate: 44100,
     startFreq: 20,
     endFreq: 20000,
     duration: 3,
-    bitDepth: 24,
-    bitFormat: 'pcm',
     leadSilence: 500,
     trailSilence: 2000,
-    outputLevel: -3,
     fadeInType: 'hanning',
     fadeInDuration: '1octave',
     fadeOutType: 'hanning',
@@ -54,17 +28,13 @@ export const PRESETS = [
   {
     id: 'full-range',
     name: 'Full Range',
-    description: 'Extended frequency range ESS at high sample rate',
+    description: 'Extended frequency range ESS up to Nyquist',
     signalType: 'ess',
-    sampleRate: 96000,
     startFreq: 5,
-    endFreq: 48000,
+    endFreq: 'nyquist',
     duration: 10,
-    bitDepth: 24,
-    bitFormat: 'pcm',
     leadSilence: 1000,
     trailSilence: 5000,
-    outputLevel: -3,
     fadeInType: 'hanning',
     fadeInDuration: '1octave',
     fadeOutType: 'hanning',
@@ -79,15 +49,11 @@ export const PRESETS = [
     name: 'REW-Style',
     description: 'Matches typical Room EQ Wizard sweep parameters (256k samples)',
     signalType: 'ess',
-    sampleRate: 48000,
     startFreq: 20,
     endFreq: 20000,
     duration: 5.461,
-    bitDepth: 24,
-    bitFormat: 'pcm',
     leadSilence: 500,
     trailSilence: 3000,
-    outputLevel: -3,
     fadeInType: 'hanning',
     fadeInDuration: '1octave',
     fadeOutType: 'hanning',
@@ -102,15 +68,11 @@ export const PRESETS = [
     name: 'SMAART Short',
     description: 'Matches SMAART 128k short impulse response sweep',
     signalType: 'ess',
-    sampleRate: 48000,
     startFreq: 20,
     endFreq: 20000,
     duration: 2.667,
-    bitDepth: 24,
-    bitFormat: 'pcm',
     leadSilence: 500,
     trailSilence: 2000,
-    outputLevel: -3,
     fadeInType: 'hanning',
     fadeInDuration: '1octave',
     fadeOutType: 'hanning',
@@ -125,15 +87,11 @@ export const PRESETS = [
     name: 'SMAART Long',
     description: 'Matches SMAART 240k long impulse response sweep',
     signalType: 'ess',
-    sampleRate: 48000,
     startFreq: 20,
     endFreq: 20000,
     duration: 5,
-    bitDepth: 24,
-    bitFormat: 'pcm',
     leadSilence: 500,
     trailSilence: 4000,
-    outputLevel: -3,
     fadeInType: 'hanning',
     fadeInDuration: '1octave',
     fadeOutType: 'hanning',
@@ -148,15 +106,11 @@ export const PRESETS = [
     name: 'Subwoofer',
     description: 'Extended low-frequency sweep for subwoofer measurement',
     signalType: 'ess',
-    sampleRate: 48000,
     startFreq: 5,
     endFreq: 500,
     duration: 10,
-    bitDepth: 24,
-    bitFormat: 'pcm',
     leadSilence: 1000,
     trailSilence: 3000,
-    outputLevel: -3,
     fadeInType: 'hanning',
     fadeInDuration: '1octave',
     fadeOutType: 'hanning',
@@ -171,15 +125,11 @@ export const PRESETS = [
     name: 'Speech Range',
     description: 'Sweep focused on speech intelligibility frequencies',
     signalType: 'ess',
-    sampleRate: 48000,
     startFreq: 80,
     endFreq: 8000,
     duration: 5,
-    bitDepth: 24,
-    bitFormat: 'pcm',
     leadSilence: 500,
     trailSilence: 2000,
-    outputLevel: -3,
     fadeInType: 'hanning',
     fadeInDuration: '1octave',
     fadeOutType: 'hanning',
@@ -194,15 +144,11 @@ export const PRESETS = [
     name: 'Hi-Res Archival',
     description: 'Maximum quality capture for archival measurement',
     signalType: 'ess',
-    sampleRate: 192000,
     startFreq: 5,
-    endFreq: 96000,
+    endFreq: 'nyquist',
     duration: 15,
-    bitDepth: 32,
-    bitFormat: 'float',
     leadSilence: 1000,
     trailSilence: 10000,
-    outputLevel: -3,
     fadeInType: 'hanning',
     fadeInDuration: '1octave',
     fadeOutType: 'hanning',
@@ -217,13 +163,9 @@ export const PRESETS = [
     name: 'White Noise',
     description: 'Flat-spectrum white noise for system verification',
     signalType: 'white',
-    sampleRate: 48000,
     duration: 5,
-    bitDepth: 24,
-    bitFormat: 'pcm',
     leadSilence: 100,
     trailSilence: 100,
-    outputLevel: -6,
     fadeInType: 'linear',
     fadeInDuration: '0.01',
     fadeOutType: 'linear',
@@ -238,13 +180,9 @@ export const PRESETS = [
     name: 'Pink Noise',
     description: 'Equal energy per octave noise for speaker verification',
     signalType: 'pink',
-    sampleRate: 48000,
     duration: 10,
-    bitDepth: 24,
-    bitFormat: 'pcm',
     leadSilence: 100,
     trailSilence: 100,
-    outputLevel: -6,
     fadeInType: 'linear',
     fadeInDuration: '0.01',
     fadeOutType: 'linear',
@@ -259,13 +197,9 @@ export const PRESETS = [
     name: 'MLS',
     description: 'Order-16 Maximum Length Sequence for impulse response',
     signalType: 'mls',
-    sampleRate: 48000,
     mlsOrder: 16,
-    bitDepth: 24,
-    bitFormat: 'pcm',
     leadSilence: 100,
     trailSilence: 500,
-    outputLevel: -3,
     fadeInType: 'none',
     fadeInDuration: '0',
     fadeOutType: 'none',
@@ -278,19 +212,60 @@ export const PRESETS = [
 ];
 
 /**
- * Apply a preset's values to the UI form elements.
- * @param {Preset} preset
- * @param {object} elements - Map of DOM input elements by name/id
+ * Format presets — define sample rate, bit depth, and output level.
  */
-export function applyPreset(preset, elements) {
+export const FORMAT_PRESETS = [
+  {
+    id: 'cd-quality',
+    name: 'CD Quality',
+    description: '44.1 kHz / 16-bit PCM',
+    sampleRate: 44100,
+    bitDepth: 16,
+    bitFormat: 'pcm',
+    outputLevel: -3,
+  },
+  {
+    id: 'broadcast',
+    name: 'Broadcast',
+    description: '48 kHz / 24-bit PCM',
+    sampleRate: 48000,
+    bitDepth: 24,
+    bitFormat: 'pcm',
+    outputLevel: -3,
+  },
+  {
+    id: 'hires',
+    name: 'Hi-Res',
+    description: '96 kHz / 24-bit PCM',
+    sampleRate: 96000,
+    bitDepth: 24,
+    bitFormat: 'pcm',
+    outputLevel: -3,
+  },
+  {
+    id: 'studio-max',
+    name: 'Studio Max',
+    description: '192 kHz / 32-bit Float',
+    sampleRate: 192000,
+    bitDepth: 32,
+    bitFormat: 'float',
+    outputLevel: -3,
+  },
+];
+
+/**
+ * Apply a signal preset's values to the UI form elements.
+ * Skips format fields (sampleRate, bitDepth, outputLevel).
+ * @param {object} preset
+ * @param {object} elements - Map of DOM input elements by name/id
+ * @param {number} currentSampleRate - Current sample rate for resolving 'nyquist'
+ */
+export function applySignalPreset(preset, elements, currentSampleRate) {
   const fieldMap = {
     signalType: preset.signalType,
-    sampleRate: preset.sampleRate,
     startFreq: preset.startFreq,
-    endFreq: preset.endFreq,
     duration: preset.duration,
     channelMode: preset.channelMode,
-    outputLevel: preset.outputLevel,
     leadSilence: preset.leadSilence,
     trailSilence: preset.trailSilence,
     fadeInType: preset.fadeInType,
@@ -302,6 +277,13 @@ export function applyPreset(preset, elements) {
     generateInverse: preset.generateInverse,
     mlsOrder: preset.mlsOrder,
   };
+
+  // Resolve 'nyquist' endFreq
+  let endFreq = preset.endFreq;
+  if (endFreq === 'nyquist') {
+    endFreq = Math.floor(currentSampleRate / 2);
+  }
+  fieldMap.endFreq = endFreq;
 
   for (const [key, value] of Object.entries(fieldMap)) {
     if (value === undefined || !elements[key]) continue;
@@ -316,12 +298,37 @@ export function applyPreset(preset, elements) {
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
+}
+
+/**
+ * Apply a format preset's values to the UI form elements.
+ * Only sets sampleRate, bitDepth, and outputLevel.
+ * @param {object} preset
+ * @param {object} elements - Map of DOM input elements by name/id
+ */
+export function applyFormatPreset(preset, elements) {
+  if (preset.sampleRate != null && elements.sampleRate) {
+    elements.sampleRate.value = preset.sampleRate;
+    elements.sampleRate.dispatchEvent(new Event('input', { bubbles: true }));
+    elements.sampleRate.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  if (preset.outputLevel != null && elements.outputLevel) {
+    elements.outputLevel.value = preset.outputLevel;
+    elements.outputLevel.dispatchEvent(new Event('input', { bubbles: true }));
+    elements.outputLevel.dispatchEvent(new Event('change', { bubbles: true }));
+  }
 
   // Handle bit depth radio buttons
   if (preset.bitDepth) {
     const radios = document.querySelectorAll('input[name="bitDepth"]');
     for (const radio of radios) {
       radio.checked = (parseInt(radio.value) === preset.bitDepth);
+    }
+    // Dispatch change on the checked radio
+    const checked = document.querySelector('input[name="bitDepth"]:checked');
+    if (checked) {
+      checked.dispatchEvent(new Event('change', { bubbles: true }));
     }
   }
 }
