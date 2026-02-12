@@ -12,7 +12,7 @@
   <header class="header">
     <div class="header-inner">
       <h1>Sine Sweep Generator</h1>
-      <p class="subtitle">Audio test signals for Impulse Response capture</p>
+      <p class="subtitle">Audio test signals for Impulse Response (IR) capture by Pengo Wray</p>
     </div>
   </header>
 
@@ -258,7 +258,7 @@
       <div class="canvas-wrapper" id="waveformWrapper">
         <canvas id="waveformCanvas" width="800" height="150"></canvas>
         <div class="canvas-label">Waveform</div>
-        <div class="stale-overlay" id="staleOverlay" hidden>Parameters changed — will update when stopped</div>
+        <span class="stale-indicator" id="staleOverlay" hidden title="Parameters changed — will update when playback stops">&#x26A0;</span>
       </div>
       <div class="canvas-wrapper" id="freqPlotWrapper">
         <canvas id="frequencyCanvas" width="800" height="120"></canvas>
@@ -306,7 +306,10 @@
   </main>
 
   <footer class="footer">
-    <p>Sine Sweep Generator v1.0 &mdash; Open source IR test signal tool</p>
+    <p>Sine Sweep Generator v1.0.4 by Pengo Wray &mdash; Generate high-fidelity test signals to capture impulse responses. View the source on <a href="https://github.com/pengo/sweep" target="_blank" rel="noopener noreferrer">GitHub</a>.</p>
+    <p>&nbsp;</p>
+    <p>This utility generates high-precision exponential sine sweeps designed for acoustic measurement. By recording these sweeps in a physical space or through analog gear, you capture the raw "fingerprint" of the environment (and gear).</p>
+    <p>To use these recordings in a convolution reverb you must first perform deconvolution, a process that compares the recorded signal against the original source to extract a time-aligned Impulse Response (IR). Once processed, these IRs can be loaded into any standard convolution engine to replicate the space's sonic characteristics.</p>
   </footer>
 
   <script type="module" src="js/app.js"></script>
