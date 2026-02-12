@@ -65,15 +65,6 @@
           <input type="number" id="duration" value="5" min="0.01" max="300" step="any">
         </div>
 
-        <div class="control-group" id="seedGroup" hidden>
-          <label for="noiseSeed">Random Seed</label>
-          <div class="seed-row">
-            <input type="number" id="noiseSeed" value="12345" min="0" max="4294967295" step="1">
-            <button type="button" id="randomizeSeedBtn" class="btn btn-tiny" title="Randomize seed">&#x1f3b2;</button>
-          </div>
-        </div>
-      </div>
-
       <!-- MLS-specific controls -->
       <div id="mlsControls" class="conditional-controls" hidden>
         <div class="controls-grid">
@@ -249,6 +240,16 @@
             </label>
             <p class="hint">Downloads a second WAV for deconvolution</p>
           </div>
+
+          <div class="control-group" id="seedGroup" hidden>
+            <label for="noiseSeed">Random Seed</label>
+            <div class="seed-row">
+              <input type="number" id="noiseSeed" value="12345" min="0" max="4294967295" step="1">
+              <button type="button" id="randomizeSeedBtn" class="btn btn-tiny" title="Randomize seed">&#x1f3b2;</button>
+            </div>
+          </div>
+        </div>
+          
         </div>
       </div>
     </details>
@@ -306,7 +307,7 @@
   </main>
 
   <footer class="footer">
-    <p>Sine Sweep Generator v1.0.4 by Pengo Wray &mdash; Generate high-fidelity test signals to capture impulse responses. View the source on <a href="https://github.com/pengo/sweep" target="_blank" rel="noopener noreferrer">GitHub</a>.</p>
+    <p>Sine Sweep Generator v1.0.5 by Pengo Wray &mdash; Generate high-fidelity test signals to capture impulse responses. View the source on <a href="https://github.com/pengo/sweep" target="_blank" rel="noopener noreferrer">GitHub</a>.</p>
     <p>&nbsp;</p>
     <p>This utility generates high-precision exponential sine sweeps designed for acoustic measurement. By recording these sweeps in a physical space or through analog gear, you capture the raw "fingerprint" of the environment (and gear).</p>
     <p>To use these recordings in a convolution reverb you must first perform deconvolution, a process that compares the recorded signal against the original source to extract a time-aligned Impulse Response (IR). Once processed, these IRs can be loaded into any standard convolution engine to replicate the space's sonic characteristics.</p>
