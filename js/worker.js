@@ -49,6 +49,7 @@ self.onmessage = function (event) {
         samples = generateWhiteNoise({
           sampleRate: params.sampleRate,
           duration: params.duration,
+          seed: params.seed,
           onProgress: genProgress,
         });
         break;
@@ -57,6 +58,7 @@ self.onmessage = function (event) {
         samples = generatePinkNoise({
           sampleRate: params.sampleRate,
           duration: params.duration,
+          seed: params.seed,
           onProgress: genProgress,
         });
         break;
@@ -160,6 +162,36 @@ self.onmessage = function (event) {
     } else if (channelMode === 'stereo-lrb') {
       // L, R, Both cycle per repetition: rep0→L, rep1→R, rep2→Both, rep3→L, ...
       channels = buildLRBChannels(samples, reps, leadSamples, trailSamples, params);
+
+    } else if (channelMode === 'stereo-independent') {
+      // Generate a second independent noise signal with a different seed
+      const isNoise = ['white', 'pink'].includes(params.signalType);
+      if (isNoise) {
+        let rightSamples;
+        const seed2 = (params.seed || 0) + 1;
+        if (params.signalType === 'white') {
+          rightSamples = generateWhiteNoise({
+            sampleRate: params.sampleRate,
+            duration: params.duration,
+            seed: seed2,
+          });
+        } else {
+          rightSamples = generatePinkNoise({
+            sampleRate: params.sampleRate,
+            duration: params.duration,
+            seed: seed2,
+          });
+        }
+        // Apply same processing to right channel
+        applyFades(rightSamples, params.fadeInType || 'none', fadeInSamples, params.fadeOutType || 'none', fadeOutSamples);
+        applyGain(rightSamples, linearGain);
+        if (reps > 1) {
+          const interSilenceSamples = Math.round((params.interSweepSilence || 0) / 1000 * params.sampleRate);
+          rightSamples = repeatWithSilence(rightSamples, reps, interSilenceSamples);
+        }
+        rightSamples = addSilence(rightSamples, leadSamples, trailSamples);
+        channels = [samples, rightSamples];
+      }
     }
 
     const bwfDescription = buildBwfDescription(params);

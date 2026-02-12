@@ -89,6 +89,51 @@ export class PreviewPlayer {
   }
 
   /**
+   * Load separate left and right channel samples for stereo preview.
+   * @param {Float64Array} leftSamples
+   * @param {Float64Array} rightSamples
+   * @param {number} sourceSampleRate
+   */
+  loadStereo(leftSamples, rightSamples, sourceSampleRate) {
+    const ctx = this._getContext();
+    this.stop();
+
+    const length = Math.max(leftSamples.length, rightSamples.length);
+    const leftF32 = new Float32Array(length);
+    const rightF32 = new Float32Array(length);
+    for (let i = 0; i < leftSamples.length; i++) leftF32[i] = leftSamples[i];
+    for (let i = 0; i < rightSamples.length; i++) rightF32[i] = rightSamples[i];
+
+    let bufferRate = sourceSampleRate;
+    try {
+      this._audioBuffer = ctx.createBuffer(2, length, bufferRate);
+    } catch (e) {
+      bufferRate = ctx.sampleRate;
+      const resampledLength = Math.round(length * bufferRate / sourceSampleRate);
+      this._audioBuffer = ctx.createBuffer(2, resampledLength, bufferRate);
+      const ratio = sourceSampleRate / bufferRate;
+      for (let ch = 0; ch < 2; ch++) {
+        const src = ch === 0 ? leftF32 : rightF32;
+        const resampled = new Float32Array(resampledLength);
+        for (let i = 0; i < resampledLength; i++) {
+          const srcIdx = i * ratio;
+          const lo = Math.floor(srcIdx);
+          const hi = Math.min(lo + 1, src.length - 1);
+          const frac = srcIdx - lo;
+          resampled[i] = src[lo] * (1 - frac) + src[hi] * frac;
+        }
+        this._audioBuffer.copyToChannel(resampled, ch);
+      }
+      this._pauseOffset = 0;
+      return;
+    }
+
+    this._audioBuffer.copyToChannel(leftF32, 0);
+    this._audioBuffer.copyToChannel(rightF32, 1);
+    this._pauseOffset = 0;
+  }
+
+  /**
    * Start or resume playback.
    */
   play() {

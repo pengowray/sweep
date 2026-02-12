@@ -209,6 +209,50 @@ export const SIGNAL_PRESETS = [
     interSweepSilence: 100,
     generateInverse: false,
   },
+  {
+    id: 'stepped-third-octave',
+    name: '1/3 Octave Steps',
+    description: 'Stepped sine at 1/3-octave intervals — standard acoustic measurement',
+    signalType: 'stepped',
+    startFreq: 20,
+    endFreq: 20000,
+    stepsPerOctave: 3,
+    dwellTime: 0.5,
+    gapTime: 0.05,
+    steppedSpacing: 'logarithmic',
+    leadSilence: 500,
+    trailSilence: 1000,
+    fadeInType: 'none',
+    fadeInDuration: '0',
+    fadeOutType: 'none',
+    fadeOutDuration: '0',
+    channelMode: 'mono',
+    repetitions: 1,
+    interSweepSilence: 0,
+    generateInverse: false,
+  },
+  {
+    id: 'broadcast-test-tone',
+    name: 'Broadcast Test',
+    description: 'Stepped tones at standard broadcast frequencies (resembles EBU test signal)',
+    signalType: 'stepped',
+    startFreq: 100,
+    endFreq: 15000,
+    stepsPerOctave: 1,
+    dwellTime: 1.0,
+    gapTime: 0.1,
+    steppedSpacing: 'logarithmic',
+    leadSilence: 1000,
+    trailSilence: 1000,
+    fadeInType: 'none',
+    fadeInDuration: '0',
+    fadeOutType: 'none',
+    fadeOutDuration: '0',
+    channelMode: 'mono',
+    repetitions: 1,
+    interSweepSilence: 0,
+    generateInverse: false,
+  },
 ];
 
 /**
@@ -251,6 +295,15 @@ export const FORMAT_PRESETS = [
     bitFormat: 'float',
     outputLevel: -3,
   },
+  {
+    id: 'chiropterologist',
+    name: 'Chiropterologist',
+    description: '384 kHz / 24-bit — Bat detector and ultrasonic measurement',
+    sampleRate: 384000,
+    bitDepth: 24,
+    bitFormat: 'pcm',
+    outputLevel: -3,
+  },
 ];
 
 /**
@@ -276,6 +329,10 @@ export function applySignalPreset(preset, elements, currentSampleRate) {
     interSweepSilence: preset.interSweepSilence,
     generateInverse: preset.generateInverse,
     mlsOrder: preset.mlsOrder,
+    stepsPerOctave: preset.stepsPerOctave,
+    dwellTime: preset.dwellTime,
+    gapTime: preset.gapTime,
+    steppedSpacing: preset.steppedSpacing,
   };
 
   // Resolve 'nyquist' endFreq

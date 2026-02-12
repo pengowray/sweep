@@ -21,6 +21,7 @@ export class Visualizer {
     this._textColor = '#a0a4b8';
 
     this._lastWaveData = null;
+    this._lastWaveDataR = null;
     this._lastFreqParams = null;
     this._lastSampleRate = null;
 
@@ -55,7 +56,9 @@ export class Visualizer {
     this._syncCanvasSize(this._freqCanvas);
 
     // Re-draw if we have data
-    if (this._lastWaveData) {
+    if (this._lastWaveData && this._lastWaveDataR) {
+      this._drawStereoWaveformInternal(this._lastWaveData, this._lastWaveDataR, this._lastSampleRate);
+    } else if (this._lastWaveData) {
       this._drawWaveformInternal(this._lastWaveData, this._lastSampleRate);
     }
     if (this._lastFreqParams) {
@@ -78,9 +81,119 @@ export class Visualizer {
    */
   drawWaveform(samples, sampleRate) {
     this._lastWaveData = samples;
+    this._lastWaveDataR = null;
     this._lastSampleRate = sampleRate;
     this._syncCanvasSize(this._waveCanvas);
     this._drawWaveformInternal(samples, sampleRate);
+  }
+
+  drawStereoWaveform(leftSamples, rightSamples, sampleRate) {
+    this._lastWaveData = leftSamples;
+    this._lastWaveDataR = rightSamples;
+    this._lastSampleRate = sampleRate;
+    this._syncCanvasSize(this._waveCanvas);
+    this._drawStereoWaveformInternal(leftSamples, rightSamples, sampleRate);
+  }
+
+  _drawStereoWaveformInternal(leftSamples, rightSamples, sampleRate) {
+    const ctx = this._waveCanvas.getContext('2d');
+    const { w, h } = this._dims(this._waveCanvas);
+
+    // Background
+    ctx.fillStyle = this._bgColor;
+    ctx.fillRect(0, 0, w, h);
+
+    // Grid lines
+    ctx.strokeStyle = this._gridColor;
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, h / 2);
+    ctx.lineTo(w, h / 2);
+    ctx.stroke();
+    for (const frac of [0.25, 0.75]) {
+      ctx.beginPath();
+      ctx.moveTo(0, h * frac);
+      ctx.lineTo(w, h * frac);
+      ctx.stroke();
+    }
+
+    // Draw each channel as overlaid transparent envelopes
+    const channels = [
+      { samples: leftSamples, color: this._waveColor, label: 'L' },    // green
+      { samples: rightSamples, color: this._cursorColor, label: 'R' }, // pink
+    ];
+
+    for (const ch of channels) {
+      if (!ch.samples || ch.samples.length === 0) continue;
+      this._drawChannelEnvelope(ctx, ch.samples, w, h, ch.color);
+    }
+
+    ctx.globalAlpha = 1;
+
+    // Time axis labels
+    const totalTime = leftSamples.length / sampleRate;
+    ctx.fillStyle = this._textColor;
+    ctx.font = '10px sans-serif';
+    ctx.fillText('0s', 4, h - 4);
+    const endLabel = totalTime.toFixed(2) + 's';
+    ctx.fillText(endLabel, w - ctx.measureText(endLabel).width - 4, h - 4);
+
+    // Channel legend
+    ctx.font = '9px sans-serif';
+    ctx.fillStyle = this._waveColor;
+    ctx.fillText('L', w - 30, 12);
+    ctx.fillStyle = this._cursorColor;
+    ctx.fillText('R', w - 18, 12);
+  }
+
+  _drawChannelEnvelope(ctx, samples, w, h, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+
+    if (samples.length > w * 2) {
+      const step = samples.length / w;
+      const maxVals = new Float64Array(w);
+      const minVals = new Float64Array(w);
+
+      for (let x = 0; x < w; x++) {
+        const start = Math.floor(x * step);
+        const end = Math.min(Math.floor((x + 1) * step), samples.length);
+        let lo = Infinity, hi = -Infinity;
+        for (let j = start; j < end; j++) {
+          if (samples[j] < lo) lo = samples[j];
+          if (samples[j] > hi) hi = samples[j];
+        }
+        minVals[x] = lo;
+        maxVals[x] = hi;
+      }
+
+      ctx.beginPath();
+      for (let x = 0; x < w; x++) {
+        const y = h / 2 - maxVals[x] * h / 2;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      for (let x = w - 1; x >= 0; x--) {
+        const y = h / 2 - minVals[x] * h / 2;
+        ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.2;
+      ctx.fill();
+      ctx.globalAlpha = 0.6;
+      ctx.stroke();
+    } else {
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      for (let i = 0; i < samples.length; i++) {
+        const x = (i / samples.length) * w;
+        const y = h / 2 - samples[i] * h / 2;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
   }
 
   _drawWaveformInternal(samples, sampleRate) {
@@ -289,7 +402,9 @@ export class Visualizer {
     if (!totalDuration || totalDuration <= 0) return;
 
     // Redraw waveform first (to clear old cursor)
-    if (this._lastWaveData) {
+    if (this._lastWaveData && this._lastWaveDataR) {
+      this._drawStereoWaveformInternal(this._lastWaveData, this._lastWaveDataR, this._lastSampleRate);
+    } else if (this._lastWaveData) {
       this._drawWaveformInternal(this._lastWaveData, this._lastSampleRate);
     }
 
@@ -310,6 +425,7 @@ export class Visualizer {
    */
   clear() {
     this._lastWaveData = null;
+    this._lastWaveDataR = null;
     this._lastFreqParams = null;
 
     for (const canvas of [this._waveCanvas, this._freqCanvas]) {

@@ -22,6 +22,7 @@ const els = {
   channelMode: $('channelMode'),
   outputLevel: $('outputLevel'),
   outputLevelDisplay: $('outputLevelDisplay'),
+  outputLevelInput: $('outputLevelInput'),
   leadSilence: $('leadSilence'),
   trailSilence: $('trailSilence'),
   fadeInType: $('fadeInType'),
@@ -36,15 +37,23 @@ const els = {
   dwellTime: $('dwellTime'),
   gapTime: $('gapTime'),
   steppedSpacing: $('steppedSpacing'),
+  noiseSeed: $('noiseSeed'),
+  randomizeSeedBtn: $('randomizeSeedBtn'),
 
   // UI groups
   startFreqGroup: $('startFreqGroup'),
   endFreqGroup: $('endFreqGroup'),
   durationGroup: $('durationGroup'),
+  seedGroup: $('seedGroup'),
   mlsControls: $('mlsControls'),
   steppedControls: $('steppedControls'),
   inverseFilterGroup: $('inverseFilterGroup'),
   fadeInDurationGroup: $('fadeInDurationGroup'),
+  fadeInTypeGroup: $('fadeInTypeGroup'),
+  fadeOutTypeGroup: $('fadeOutTypeGroup'),
+  fadeOutDurationGroup: $('fadeOutDurationGroup'),
+  repetitionsGroup: $('repetitionsGroup'),
+  interSweepSilenceGroup: $('interSweepSilenceGroup'),
   freqPlotWrapper: $('freqPlotWrapper'),
   mlsDuration: $('mlsDuration'),
 
@@ -53,6 +62,7 @@ const els = {
   stopBtn: $('stopBtn'),
   generateBtn: $('generateBtn'),
   previewIcon: $('previewIcon'),
+  previewNote: $('previewNote'),
 
   // Progress
   progressSection: $('progressSection'),
@@ -65,9 +75,11 @@ const els = {
   estimatedSize: $('estimatedSize'),
   sizeWarning: $('sizeWarning'),
 
-  // Canvases
+  // Canvases & overlays
   waveformCanvas: $('waveformCanvas'),
   frequencyCanvas: $('frequencyCanvas'),
+  waveformWrapper: $('waveformWrapper'),
+  staleOverlay: $('staleOverlay'),
   signalPresetsBar: $('signal-presets-bar'),
   formatPresetsBar: $('format-presets-bar'),
 };
@@ -87,6 +99,9 @@ let prevRepsBeforeAuto = 1;
 // Debounce timer for visualization updates
 let vizDebounceTimer = null;
 const VIZ_DEBOUNCE_MS = 300;
+
+// Track whether visualization is stale (parameters changed during playback)
+let vizStale = false;
 
 // ─── Gather Parameters ───────────────────────────────────────────
 function getParams() {
@@ -117,6 +132,7 @@ function getParams() {
     dwellTime: parseFloat(els.dwellTime.value),
     gapTime: parseFloat(els.gapTime.value),
     steppedSpacing: els.steppedSpacing.value,
+    seed: parseInt(els.noiseSeed.value) || 0,
   };
 }
 
@@ -128,6 +144,8 @@ function updateVisibility() {
   const isMLS = type === 'mls';
   const isStepped = type === 'stepped';
   const isESS = type === 'ess';
+  const isSweep = ['ess', 'linear'].includes(type);
+  const isNoise = ['white', 'pink'].includes(type);
   const hasFreqPlot = hasFreq;
 
   els.startFreqGroup.hidden = !hasFreq;
@@ -138,6 +156,9 @@ function updateVisibility() {
   els.inverseFilterGroup.hidden = !isESS;
   els.freqPlotWrapper.hidden = !hasFreqPlot;
 
+  // Show seed input only for noise types
+  els.seedGroup.hidden = !isNoise;
+
   // Show "1 octave" option only for ESS
   const oneOctOpt = els.fadeInDuration.querySelector('option[value="1octave"]');
   if (oneOctOpt) {
@@ -147,14 +168,85 @@ function updateVisibility() {
     }
   }
 
+  // Grey out channel options that don't apply to the current signal type
+  updateChannelOptions(type, isNoise, isSweep, isMLS);
+
+  // Grey out advanced settings that don't apply
+  updateAdvancedVisibility(type, isESS, isSweep, isNoise, isMLS, isStepped);
+
   // Update MLS duration display
   if (isMLS) {
     const dur = mlsDuration(parseInt(els.mlsOrder.value), parseInt(els.sampleRate.value));
     els.mlsDuration.textContent = dur.toFixed(3) + 's';
   }
 
+  // Update preview note
+  updatePreviewNote();
+
   updateEstimatedSize();
   updateFrequencyPlot();
+}
+
+// ─── Channel Options Filtering ──────────────────────────────────
+function updateChannelOptions(type, isNoise, isSweep, isMLS) {
+  const options = els.channelMode.querySelectorAll('option');
+  const currentValue = els.channelMode.value;
+  let needsReset = false;
+
+  for (const opt of options) {
+    const dataFor = opt.getAttribute('data-for');
+    let enabled = true;
+
+    if (dataFor === 'noise' && !isNoise) enabled = false;
+    if (dataFor === 'sweep' && !isSweep) enabled = false;
+
+    opt.disabled = !enabled;
+    if (!enabled && opt.value === currentValue) {
+      needsReset = true;
+    }
+  }
+
+  if (needsReset) {
+    els.channelMode.value = 'mono';
+    els.channelMode.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+}
+
+// ─── Advanced Settings Visibility ───────────────────────────────
+function updateAdvancedVisibility(type, isESS, isSweep, isNoise, isMLS, isStepped) {
+  // Fades: relevant for sweeps and noise, less so for MLS
+  const hasFades = !isMLS;
+  els.fadeInTypeGroup.style.opacity = hasFades ? '1' : '0.4';
+  els.fadeInTypeGroup.style.pointerEvents = hasFades ? '' : 'none';
+  els.fadeOutTypeGroup.style.opacity = hasFades ? '1' : '0.4';
+  els.fadeOutTypeGroup.style.pointerEvents = hasFades ? '' : 'none';
+  els.fadeInDurationGroup.style.opacity = hasFades ? '1' : '0.4';
+  els.fadeInDurationGroup.style.pointerEvents = hasFades ? '' : 'none';
+  els.fadeOutDurationGroup.style.opacity = hasFades ? '1' : '0.4';
+  els.fadeOutDurationGroup.style.pointerEvents = hasFades ? '' : 'none';
+
+  // Repetitions & inter-sweep silence: relevant for sweeps and MLS
+  const hasReps = isSweep || isMLS || isStepped;
+  els.repetitionsGroup.style.opacity = hasReps ? '1' : '0.4';
+  els.repetitionsGroup.style.pointerEvents = hasReps ? '' : 'none';
+  els.interSweepSilenceGroup.style.opacity = hasReps ? '1' : '0.4';
+  els.interSweepSilenceGroup.style.pointerEvents = hasReps ? '' : 'none';
+
+  // Inverse filter: ESS only (already hidden, but also grey)
+  els.inverseFilterGroup.style.opacity = isESS ? '1' : '0.4';
+  els.inverseFilterGroup.style.pointerEvents = isESS ? '' : 'none';
+}
+
+// ─── Preview Quality Note ───────────────────────────────────────
+function updatePreviewNote() {
+  const params = getParams();
+  const previewRate = Math.min(params.sampleRate, 48000);
+  if (previewRate < params.sampleRate) {
+    els.previewNote.textContent =
+      `Preview plays at ${previewRate / 1000} kHz (output will be ${params.sampleRate / 1000} kHz)`;
+  } else {
+    els.previewNote.textContent = '';
+  }
 }
 
 // ─── Estimated File Size ─────────────────────────────────────────
@@ -228,8 +320,15 @@ function scheduleVizUpdate() {
 }
 
 function regenerateVisualization() {
-  // Only regenerate if we're not in the middle of playback
-  if (previewPlayer.isPlaying) return;
+  // If playing, mark as stale instead of regenerating
+  if (previewPlayer.isPlaying) {
+    vizStale = true;
+    els.staleOverlay.hidden = false;
+    return;
+  }
+
+  vizStale = false;
+  els.staleOverlay.hidden = true;
 
   const params = getParams();
   const previewRate = Math.min(params.sampleRate, 48000);
@@ -250,10 +349,10 @@ function regenerateVisualization() {
         samples = generateLinearSweep(previewParams);
         break;
       case 'white':
-        samples = generateWhiteNoise(previewParams);
+        samples = generateWhiteNoise({ ...previewParams, seed: params.seed });
         break;
       case 'pink':
-        samples = generatePinkNoise(previewParams);
+        samples = generatePinkNoise({ ...previewParams, seed: params.seed });
         break;
       case 'mls':
         samples = generateMLS({ order: params.mlsOrder, sampleRate: previewRate });
@@ -552,18 +651,14 @@ function generateOnMainThread(params) {
 }
 
 // ─── Preview ─────────────────────────────────────────────────────
-function startPreview() {
-  const params = getParams();
-
-  const previewRate = Math.min(params.sampleRate, previewPlayer.nativeSampleRate || 48000);
-
-  let samples;
+function generatePreviewSamples(params, previewRate) {
   const previewParams = { ...params, sampleRate: previewRate };
 
   if (params.signalType === 'mls') {
     previewParams.duration = mlsDuration(params.mlsOrder, previewRate);
   }
 
+  let samples;
   switch (params.signalType) {
     case 'ess':
       samples = generateExponentialSweep(previewParams);
@@ -572,10 +667,10 @@ function startPreview() {
       samples = generateLinearSweep(previewParams);
       break;
     case 'white':
-      samples = generateWhiteNoise(previewParams);
+      samples = generateWhiteNoise({ ...previewParams, seed: params.seed });
       break;
     case 'pink':
-      samples = generatePinkNoise(previewParams);
+      samples = generatePinkNoise({ ...previewParams, seed: params.seed });
       break;
     case 'mls':
       samples = generateMLS({ order: params.mlsOrder, sampleRate: previewRate });
@@ -602,7 +697,7 @@ function startPreview() {
   // Gain
   applyGain(samples, dBFSToLinear(params.outputLevel));
 
-  // Repetitions (was missing before)
+  // Repetitions
   const reps = params.repetitions || 1;
   if (reps > 1) {
     const interSilenceSamples = Math.round((params.interSweepSilence || 0) / 1000 * previewRate);
@@ -614,18 +709,49 @@ function startPreview() {
   const trailSamples = Math.round(params.trailSilence / 1000 * previewRate);
   samples = addSilence(samples, leadSamples, trailSamples);
 
-  // Draw waveform
-  visualizer.drawWaveform(samples, previewRate);
+  return samples;
+}
+
+function startPreview() {
+  const params = getParams();
+  const previewRate = Math.min(params.sampleRate, previewPlayer.nativeSampleRate || 48000);
+  const channelMode = params.channelMode;
+  const isStereo = channelMode !== 'mono';
+  const isNoise = ['white', 'pink'].includes(params.signalType);
+
+  let leftSamples, rightSamples;
+
+  if (isStereo && channelMode === 'stereo-independent' && isNoise) {
+    // Generate two independent noise signals with different seeds
+    leftSamples = generatePreviewSamples({ ...params, seed: params.seed }, previewRate);
+    rightSamples = generatePreviewSamples({ ...params, seed: params.seed + 1 }, previewRate);
+  } else {
+    leftSamples = generatePreviewSamples(params, previewRate);
+    rightSamples = leftSamples; // identical or mono
+  }
+
+  // Draw waveform (stereo dual-color if applicable)
+  if (isStereo && leftSamples !== rightSamples) {
+    visualizer.drawStereoWaveform(leftSamples, rightSamples, previewRate);
+  } else {
+    visualizer.drawWaveform(leftSamples, previewRate);
+  }
 
   // Load and play
-  previewPlayer.load(samples, previewRate);
+  if (isStereo && leftSamples !== rightSamples) {
+    previewPlayer.loadStereo(leftSamples, rightSamples, previewRate);
+  } else if (isStereo) {
+    previewPlayer.load(leftSamples, previewRate, 2);
+  } else {
+    previewPlayer.load(leftSamples, previewRate);
+  }
   previewPlayer.play();
 
   els.previewBtn.hidden = true;
   els.stopBtn.hidden = false;
 
   // Update cursor during playback
-  const totalDuration = samples.length / previewRate;
+  const totalDuration = leftSamples.length / previewRate;
   previewPlayer.onTimeUpdate((time) => {
     visualizer.drawCursor(time, totalDuration);
   });
@@ -633,6 +759,10 @@ function startPreview() {
   previewPlayer.onEnded(() => {
     els.previewBtn.hidden = false;
     els.stopBtn.hidden = true;
+    // If params changed during playback, regenerate visualization now
+    if (vizStale) {
+      regenerateVisualization();
+    }
   });
 }
 
@@ -640,6 +770,10 @@ function stopPreview() {
   previewPlayer.stop();
   els.previewBtn.hidden = false;
   els.stopBtn.hidden = true;
+  // If params changed during playback, regenerate visualization now
+  if (vizStale) {
+    regenerateVisualization();
+  }
 }
 
 // ─── Channel Mode Auto-Repetitions ──────────────────────────────
@@ -746,17 +880,44 @@ function bindEvents() {
     }
   });
 
-  // Output level slider display
+  // Output level slider <-> number input sync
   els.outputLevel.addEventListener('input', () => {
-    els.outputLevelDisplay.textContent = parseFloat(els.outputLevel.value).toFixed(1);
+    const val = parseFloat(els.outputLevel.value).toFixed(1);
+    els.outputLevelDisplay.textContent = val;
+    els.outputLevelInput.value = parseFloat(els.outputLevel.value);
   });
 
-  // Double-click output level to reset to -3 dBFS
+  els.outputLevelInput.addEventListener('input', () => {
+    let val = parseFloat(els.outputLevelInput.value);
+    if (isNaN(val)) return;
+    val = Math.max(-60, Math.min(0, val));
+    els.outputLevel.value = val;
+    els.outputLevelDisplay.textContent = val.toFixed(1);
+  });
+
+  els.outputLevelInput.addEventListener('change', () => {
+    let val = parseFloat(els.outputLevelInput.value);
+    if (isNaN(val)) val = -3;
+    val = Math.max(-60, Math.min(0, val));
+    els.outputLevelInput.value = val;
+    els.outputLevel.value = val;
+    els.outputLevelDisplay.textContent = val.toFixed(1);
+    els.outputLevel.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
+  // Double-click output level slider to reset to -3 dBFS
   els.outputLevel.addEventListener('dblclick', () => {
     els.outputLevel.value = -3;
+    els.outputLevelInput.value = -3;
     els.outputLevelDisplay.textContent = '-3.0';
     els.outputLevel.dispatchEvent(new Event('input', { bubbles: true }));
     els.outputLevel.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
+  // Randomize seed button
+  els.randomizeSeedBtn.addEventListener('click', () => {
+    els.noiseSeed.value = Math.floor(Math.random() * 4294967296);
+    els.noiseSeed.dispatchEvent(new Event('change', { bubbles: true }));
   });
 
   // MLS order or sample rate change → update MLS duration

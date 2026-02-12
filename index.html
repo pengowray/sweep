@@ -26,7 +26,6 @@
     <!-- Signal Controls -->
     <section class="controls-card">
       <div class="controls-grid">
-        <!-- Left Column -->
         <div class="control-group">
           <label for="signalType">Signal Type</label>
           <select id="signalType">
@@ -44,9 +43,10 @@
           <select id="channelMode">
             <option value="mono">Mono</option>
             <option value="stereo-identical">Stereo (identical L+R)</option>
-            <option value="stereo-sync">Stereo (L=signal, R=sync)</option>
-            <option value="stereo-alternate">Stereo Alternate (L→R)</option>
-            <option value="stereo-lrb">Stereo L, R, Both</option>
+            <option value="stereo-independent" data-for="noise">Stereo (independent L/R)</option>
+            <option value="stereo-sync" data-for="sweep">Stereo (L=signal, R=sync)</option>
+            <option value="stereo-alternate" data-for="sweep">Stereo Alternate (L→R)</option>
+            <option value="stereo-lrb" data-for="sweep">Stereo L, R, Both</option>
           </select>
         </div>
 
@@ -63,6 +63,14 @@
         <div class="control-group" id="durationGroup">
           <label for="duration">Duration (seconds)</label>
           <input type="number" id="duration" value="5" min="0.01" max="300" step="any">
+        </div>
+
+        <div class="control-group" id="seedGroup" hidden>
+          <label for="noiseSeed">Random Seed</label>
+          <div class="seed-row">
+            <input type="number" id="noiseSeed" value="12345" min="0" max="4294967295" step="1">
+            <button type="button" id="randomizeSeedBtn" class="btn btn-tiny" title="Randomize seed">&#x1f3b2;</button>
+          </div>
         </div>
       </div>
 
@@ -156,8 +164,11 @@
           </div>
 
           <div class="control-group control-group-full">
-            <label for="outputLevel">Output Level: <span id="outputLevelDisplay">-3.0</span> dBFS <span class="hint">(double-click to reset)</span></label>
-            <input type="range" id="outputLevel" min="-60" max="0" value="-3" step="0.1">
+            <label for="outputLevel">Output Level: <span id="outputLevelDisplay">-3.0</span> dBFS</label>
+            <div class="level-row">
+              <input type="range" id="outputLevel" min="-60" max="0" value="-3" step="0.1">
+              <input type="number" id="outputLevelInput" value="-3" min="-60" max="0" step="0.1" class="level-input">
+            </div>
           </div>
         </div>
       </div>
@@ -177,7 +188,7 @@
             <input type="number" id="trailSilence" value="3000" min="0" max="60000" step="1">
           </div>
 
-          <div class="control-group">
+          <div class="control-group" id="fadeInTypeGroup">
             <label for="fadeInType">Fade-In Type</label>
             <select id="fadeInType">
               <option value="hanning" selected>Half-Hanning</option>
@@ -185,7 +196,7 @@
               <option value="none">None</option>
             </select>
           </div>
-          <div class="control-group">
+          <div class="control-group" id="fadeOutTypeGroup">
             <label for="fadeOutType">Fade-Out Type</label>
             <select id="fadeOutType">
               <option value="hanning" selected>Half-Hanning</option>
@@ -208,7 +219,7 @@
               <option value="1">1 s</option>
             </select>
           </div>
-          <div class="control-group">
+          <div class="control-group" id="fadeOutDurationGroup">
             <label for="fadeOutDuration">Fade-Out Duration</label>
             <select id="fadeOutDuration">
               <option value="0.005">5 ms</option>
@@ -222,11 +233,11 @@
             </select>
           </div>
 
-          <div class="control-group">
+          <div class="control-group" id="repetitionsGroup">
             <label for="repetitions">Repetitions</label>
             <input type="number" id="repetitions" value="1" min="1" max="10" step="1">
           </div>
-          <div class="control-group">
+          <div class="control-group" id="interSweepSilenceGroup">
             <label for="interSweepSilence">Inter-Sweep Silence (ms)</label>
             <input type="number" id="interSweepSilence" value="0" min="0" max="30000" step="1">
           </div>
@@ -244,9 +255,10 @@
 
     <!-- Visualization -->
     <section class="viz-section">
-      <div class="canvas-wrapper">
+      <div class="canvas-wrapper" id="waveformWrapper">
         <canvas id="waveformCanvas" width="800" height="150"></canvas>
         <div class="canvas-label">Waveform</div>
+        <div class="stale-overlay" id="staleOverlay" hidden>Parameters changed — will update when stopped</div>
       </div>
       <div class="canvas-wrapper" id="freqPlotWrapper">
         <canvas id="frequencyCanvas" width="800" height="120"></canvas>
@@ -270,6 +282,7 @@
           Generate &amp; Download
         </button>
       </div>
+      <div class="preview-note" id="previewNote"></div>
 
       <div class="progress-section" id="progressSection" hidden>
         <div class="progress-bar-track">

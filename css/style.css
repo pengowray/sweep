@@ -333,6 +333,83 @@ details[open] .controls-card {
   opacity: 0.6;
 }
 
+.stale-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 31, 43, 0.6);
+  color: var(--orange);
+  font-size: 0.78rem;
+  font-weight: 500;
+  border-radius: var(--radius);
+  pointer-events: none;
+}
+
+/* Seed row: input + randomize button */
+.seed-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.seed-row input[type="number"] {
+  flex: 1;
+}
+
+.btn-tiny {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.btn-tiny:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+
+/* Output level row: slider + number input */
+.level-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.level-row input[type="range"] {
+  flex: 1;
+}
+
+.level-input {
+  width: 70px !important;
+  flex: 0 0 70px;
+  text-align: center;
+}
+
+/* Preview quality note */
+.preview-note {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 0.4rem;
+  font-style: italic;
+}
+
+/* Disabled channel options */
+select option:disabled {
+  color: var(--text-dim);
+  opacity: 0.5;
+}
+
 /* Action buttons */
 .actions-section {
   margin-bottom: 0.75rem;
