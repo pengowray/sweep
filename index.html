@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sine Sweep Generator — IR Test Signal Tool</title>
+  <meta name="description" content="Professional audio test signal generator for Impulse Response capture. Exponential sine sweeps, noise, MLS — export as WAV.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <h1>Sine Sweep Generator</h1>
+      <p class="subtitle">Audio test signals for Impulse Response capture</p>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Preset Bar -->
+    <section class="presets-section">
+      <h2 class="section-label">Presets</h2>
+      <div id="presets-bar" class="presets-bar"></div>
+    </section>
+
+    <!-- Main Controls -->
+    <section class="controls-card">
+      <div class="controls-grid">
+        <!-- Left Column -->
+        <div class="control-group">
+          <label for="signalType">Signal Type</label>
+          <select id="signalType">
+            <option value="ess">Exponential Sine Sweep (ESS)</option>
+            <option value="linear">Linear Sine Sweep</option>
+            <option value="white">White Noise</option>
+            <option value="pink">Pink Noise</option>
+            <option value="mls">MLS (Max-Length Sequence)</option>
+            <option value="stepped">Stepped Sine</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="sampleRate">Sample Rate</label>
+          <select id="sampleRate">
+            <option value="44100">44,100 Hz</option>
+            <option value="48000" selected>48,000 Hz</option>
+            <option value="88200">88,200 Hz</option>
+            <option value="96000">96,000 Hz</option>
+            <option value="192000">192,000 Hz</option>
+            <option value="384000">384,000 Hz (not recommended)</option>
+            <option value="768000">768,000 Hz (not recommended)</option>
+          </select>
+        </div>
+
+        <div class="control-group" id="startFreqGroup">
+          <label for="startFreq">Start Frequency (Hz)</label>
+          <input type="number" id="startFreq" value="20" min="1" max="96000" step="any">
+        </div>
+
+        <div class="control-group" id="endFreqGroup">
+          <label for="endFreq">End Frequency (Hz)</label>
+          <input type="number" id="endFreq" value="20000" min="1" max="96000" step="any">
+        </div>
+
+        <div class="control-group" id="durationGroup">
+          <label for="duration">Duration (seconds)</label>
+          <input type="number" id="duration" value="5" min="0.01" max="300" step="any">
+        </div>
+
+        <div class="control-group">
+          <label for="bitDepth">Bit Depth</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input type="radio" name="bitDepth" value="16"> 16-bit PCM
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="bitDepth" value="24" checked> 24-bit PCM
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="bitDepth" value="32"> 32-bit Float
+            </label>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label for="channelMode">Channels</label>
+          <select id="channelMode">
+            <option value="mono">Mono</option>
+            <option value="stereo-identical">Stereo (identical L+R)</option>
+            <option value="stereo-sync">Stereo (L=signal, R=sync)</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="outputLevel">Output Level: <span id="outputLevelDisplay">-3</span> dBFS</label>
+          <input type="range" id="outputLevel" min="-60" max="0" value="-3" step="0.1">
+        </div>
+      </div>
+
+      <!-- MLS-specific controls -->
+      <div id="mlsControls" class="conditional-controls" hidden>
+        <div class="controls-grid">
+          <div class="control-group">
+            <label for="mlsOrder">MLS Order</label>
+            <select id="mlsOrder">
+              <option value="10">10 (1,023 samples)</option>
+              <option value="11">11 (2,047)</option>
+              <option value="12">12 (4,095)</option>
+              <option value="13">13 (8,191)</option>
+              <option value="14">14 (16,383)</option>
+              <option value="15">15 (32,767)</option>
+              <option value="16" selected>16 (65,535)</option>
+              <option value="17">17 (131,071)</option>
+              <option value="18">18 (262,143)</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>Computed Duration: <span id="mlsDuration">1.365s</span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stepped Sine-specific controls -->
+      <div id="steppedControls" class="conditional-controls" hidden>
+        <div class="controls-grid">
+          <div class="control-group">
+            <label for="stepsPerOctave">Steps per Octave</label>
+            <select id="stepsPerOctave">
+              <option value="1">1</option>
+              <option value="3" selected>3 (1/3 octave)</option>
+              <option value="6">6 (1/6 octave)</option>
+              <option value="12">12 (1/12 octave)</option>
+              <option value="24">24</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="dwellTime">Dwell Time per Step (s)</label>
+            <input type="number" id="dwellTime" value="0.5" min="0.01" max="10" step="0.01">
+          </div>
+          <div class="control-group">
+            <label for="gapTime">Gap Between Steps (s)</label>
+            <input type="number" id="gapTime" value="0.05" min="0" max="5" step="0.01">
+          </div>
+          <div class="control-group">
+            <label for="steppedSpacing">Frequency Spacing</label>
+            <select id="steppedSpacing">
+              <option value="logarithmic" selected>Logarithmic</option>
+              <option value="linear">Linear</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Advanced Settings -->
+    <details class="advanced-section">
+      <summary class="advanced-toggle">Advanced Settings</summary>
+      <div class="controls-card">
+        <div class="controls-grid">
+          <div class="control-group">
+            <label for="leadSilence">Leading Silence (ms)</label>
+            <input type="number" id="leadSilence" value="500" min="0" max="30000" step="1">
+          </div>
+          <div class="control-group">
+            <label for="trailSilence">Trailing Silence (ms)</label>
+            <input type="number" id="trailSilence" value="3000" min="0" max="60000" step="1">
+          </div>
+
+          <div class="control-group">
+            <label for="fadeInType">Fade-In Type</label>
+            <select id="fadeInType">
+              <option value="hanning" selected>Half-Hanning</option>
+              <option value="linear">Linear</option>
+              <option value="none">None</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="fadeOutType">Fade-Out Type</label>
+            <select id="fadeOutType">
+              <option value="hanning" selected>Half-Hanning</option>
+              <option value="linear">Linear</option>
+              <option value="none">None</option>
+            </select>
+          </div>
+
+          <div class="control-group" id="fadeInDurationGroup">
+            <label for="fadeInDuration">Fade-In Duration</label>
+            <select id="fadeInDuration">
+              <option value="1octave" selected>1 Octave (auto, ESS)</option>
+              <option value="0.005">5 ms</option>
+              <option value="0.01">10 ms</option>
+              <option value="0.02">20 ms</option>
+              <option value="0.05">50 ms</option>
+              <option value="0.1">100 ms</option>
+              <option value="0.2">200 ms</option>
+              <option value="0.5">500 ms</option>
+              <option value="1">1 s</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="fadeOutDuration">Fade-Out Duration</label>
+            <select id="fadeOutDuration">
+              <option value="0.005">5 ms</option>
+              <option value="0.01">10 ms</option>
+              <option value="0.02">20 ms</option>
+              <option value="0.05" selected>50 ms</option>
+              <option value="0.1">100 ms</option>
+              <option value="0.2">200 ms</option>
+              <option value="0.5">500 ms</option>
+              <option value="1">1 s</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label for="repetitions">Repetitions</label>
+            <input type="number" id="repetitions" value="1" min="1" max="10" step="1">
+          </div>
+          <div class="control-group">
+            <label for="interSweepSilence">Inter-Sweep Silence (ms)</label>
+            <input type="number" id="interSweepSilence" value="0" min="0" max="30000" step="1">
+          </div>
+
+          <div class="control-group" id="inverseFilterGroup">
+            <label class="checkbox-label">
+              <input type="checkbox" id="generateInverse">
+              Generate Inverse Filter (ESS only)
+            </label>
+            <p class="hint">Downloads a second WAV for deconvolution</p>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <!-- Visualization -->
+    <section class="viz-section">
+      <div class="canvas-wrapper">
+        <canvas id="waveformCanvas" width="800" height="150"></canvas>
+        <div class="canvas-label">Waveform</div>
+      </div>
+      <div class="canvas-wrapper" id="freqPlotWrapper">
+        <canvas id="frequencyCanvas" width="800" height="120"></canvas>
+        <div class="canvas-label">Frequency vs Time</div>
+      </div>
+    </section>
+
+    <!-- Actions -->
+    <section class="actions-section">
+      <div class="button-row">
+        <button id="previewBtn" class="btn btn-secondary">
+          <span class="btn-icon" id="previewIcon">&#9654;</span>
+          Preview
+        </button>
+        <button id="stopBtn" class="btn btn-secondary" hidden>
+          <span class="btn-icon">&#9632;</span>
+          Stop
+        </button>
+        <button id="generateBtn" class="btn btn-primary">
+          <span class="btn-icon">&#11015;</span>
+          Generate &amp; Download
+        </button>
+      </div>
+
+      <div class="progress-section" id="progressSection" hidden>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progressBar" style="width: 0%"></div>
+        </div>
+        <div class="progress-text" id="progressText">Preparing...</div>
+      </div>
+    </section>
+
+    <!-- File Info -->
+    <section class="info-section" id="fileInfo" hidden>
+      <div class="info-grid" id="fileInfoGrid"></div>
+    </section>
+
+    <!-- Estimated Size -->
+    <section class="estimate-section">
+      <span class="estimate-label">Estimated file size:</span>
+      <span id="estimatedSize" class="estimate-value">—</span>
+      <span id="sizeWarning" class="size-warning" hidden></span>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Sine Sweep Generator v1.0 &mdash; Open source IR test signal tool</p>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
