@@ -1,25 +1,17 @@
 // js/generators/noise.js — White noise and Pink noise generation
 
 /**
- * Simple seeded PRNG (xorshift128+) for reproducible results.
+ * Seeded PRNG (Mulberry32) for reproducible results.
  * Returns a function that produces values in [0, 1).
+ * Period: 2^32 (~89,000 seconds of unique samples at 48 kHz).
  */
 function createPRNG(seed) {
-  // Initialize state from seed
-  let s0 = seed >>> 0 || 1;
-  let s1 = (s0 * 1103515245 + 12345) >>> 0 || 2;
-
+  let state = seed >>> 0;
   return function next() {
-    let x = s0;
-    const y = s1;
-    s0 = y;
-    x ^= (x << 23) | 0;
-    x ^= (x >>> 17) | 0;
-    x ^= y | 0;
-    x ^= (y >>> 26) | 0;
-    s1 = x;
-    // Use upper bits for better distribution
-    return ((s0 + s1) >>> 0) / 4294967296;
+    state = (state + 0x6D2B79F5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 

@@ -333,67 +333,15 @@ function regenerateVisualization() {
   const params = getParams();
   const previewRate = Math.min(params.sampleRate, 48000);
 
-  let samples;
-  const previewParams = { ...params, sampleRate: previewRate };
-
-  if (params.signalType === 'mls') {
-    previewParams.duration = mlsDuration(params.mlsOrder, previewRate);
-  }
-
   try {
-    switch (params.signalType) {
-      case 'ess':
-        samples = generateExponentialSweep(previewParams);
-        break;
-      case 'linear':
-        samples = generateLinearSweep(previewParams);
-        break;
-      case 'white':
-        samples = generateWhiteNoise({ ...previewParams, seed: params.seed });
-        break;
-      case 'pink':
-        samples = generatePinkNoise({ ...previewParams, seed: params.seed });
-        break;
-      case 'mls':
-        samples = generateMLS({ order: params.mlsOrder, sampleRate: previewRate });
-        break;
-      case 'stepped':
-        samples = generateSteppedSine({ ...previewParams });
-        break;
-    }
+    const { left, right, isStereo } = buildPreviewChannels(params, previewRate);
+    if (!left) return;
 
-    if (!samples) return;
-
-    // Apply fades
-    let fadeInSamples;
-    if (params.fadeInDuration === '1octave' && params.signalType === 'ess') {
-      fadeInSamples = essOneOctaveFadeSamples(
-        params.startFreq, params.endFreq,
-        params.signalType === 'mls' ? previewParams.duration : params.duration,
-        previewRate
-      );
+    if (isStereo) {
+      visualizer.drawStereoWaveform(left, right, previewRate);
     } else {
-      fadeInSamples = Math.round(parseFloat(params.fadeInDuration || 0) * previewRate);
+      visualizer.drawWaveform(left, previewRate);
     }
-    const fadeOutSamples = Math.round(parseFloat(params.fadeOutDuration || 0) * previewRate);
-    applyFades(samples, params.fadeInType, fadeInSamples, params.fadeOutType, fadeOutSamples);
-
-    // Gain
-    applyGain(samples, dBFSToLinear(params.outputLevel));
-
-    // Repetitions
-    const reps = params.repetitions || 1;
-    if (reps > 1) {
-      const interSilenceSamples = Math.round((params.interSweepSilence || 0) / 1000 * previewRate);
-      samples = repeatWithSilence(samples, reps, interSilenceSamples);
-    }
-
-    // Silence
-    const leadSamples = Math.round(params.leadSilence / 1000 * previewRate);
-    const trailSamples = Math.round(params.trailSilence / 1000 * previewRate);
-    samples = addSilence(samples, leadSamples, trailSamples);
-
-    visualizer.drawWaveform(samples, previewRate);
   } catch (e) {
     // Silently fail — user is probably mid-edit
   }
@@ -712,33 +660,87 @@ function generatePreviewSamples(params, previewRate) {
   return samples;
 }
 
+// ─── Build Stereo Preview Channels ──────────────────────────────
+function buildPreviewChannels(params, previewRate) {
+  const channelMode = params.channelMode;
+  const isNoise = ['white', 'pink'].includes(params.signalType);
+  const isStereo = channelMode !== 'mono';
+
+  if (channelMode === 'stereo-independent' && isNoise) {
+    const left = generatePreviewSamples(params, previewRate);
+    const right = generatePreviewSamples({ ...params, seed: params.seed + 1 }, previewRate);
+    return { left, right, isStereo: true };
+  }
+
+  const mono = generatePreviewSamples(params, previewRate);
+
+  if (!isStereo || channelMode === 'stereo-identical') {
+    return { left: mono, right: mono, isStereo: false };
+  }
+
+  if (channelMode === 'stereo-sync') {
+    const right = new Float64Array(mono.length);
+    const leadSamp = Math.round(params.leadSilence / 1000 * previewRate);
+    right[leadSamp] = dBFSToLinear(params.outputLevel);
+    return { left: mono, right, isStereo: true };
+  }
+
+  // stereo-alternate or stereo-lrb
+  const reps = params.repetitions || 1;
+  const leadSamp = Math.round(params.leadSilence / 1000 * previewRate);
+  const trailSamp = Math.round(params.trailSilence / 1000 * previewRate);
+  const interSilenceSamples = Math.round((params.interSweepSilence || 0) / 1000 * previewRate);
+  const totalLen = mono.length;
+  const left = new Float64Array(totalLen);
+  const right = new Float64Array(totalLen);
+
+  if (reps <= 1) {
+    left.set(mono);
+    if (channelMode === 'stereo-lrb') right.set(mono);
+    return { left, right, isStereo: true };
+  }
+
+  const sweepRegion = totalLen - leadSamp - trailSamp;
+  const sweepLen = Math.round((sweepRegion - interSilenceSamples * (reps - 1)) / reps);
+
+  for (let r = 0; r < reps; r++) {
+    const start = leadSamp + r * (sweepLen + interSilenceSamples);
+    const end = Math.min(start + sweepLen, totalLen);
+
+    if (channelMode === 'stereo-alternate') {
+      const target = (r % 2 === 0) ? left : right;
+      for (let i = start; i < end; i++) target[i] = mono[i];
+    } else {
+      // stereo-lrb: 0=L, 1=R, 2=Both
+      const phase = r % 3;
+      for (let i = start; i < end; i++) {
+        if (phase === 0 || phase === 2) left[i] = mono[i];
+        if (phase === 1 || phase === 2) right[i] = mono[i];
+      }
+    }
+  }
+
+  return { left, right, isStereo: true };
+}
+
 function startPreview() {
   const params = getParams();
   const previewRate = Math.min(params.sampleRate, previewPlayer.nativeSampleRate || 48000);
   const channelMode = params.channelMode;
   const isStereo = channelMode !== 'mono';
-  const isNoise = ['white', 'pink'].includes(params.signalType);
 
-  let leftSamples, rightSamples;
-
-  if (isStereo && channelMode === 'stereo-independent' && isNoise) {
-    // Generate two independent noise signals with different seeds
-    leftSamples = generatePreviewSamples({ ...params, seed: params.seed }, previewRate);
-    rightSamples = generatePreviewSamples({ ...params, seed: params.seed + 1 }, previewRate);
-  } else {
-    leftSamples = generatePreviewSamples(params, previewRate);
-    rightSamples = leftSamples; // identical or mono
-  }
+  const { left: leftSamples, right: rightSamples, isStereo: hasStereoChannels } =
+    buildPreviewChannels(params, previewRate);
 
   // Draw waveform (stereo dual-color if applicable)
-  if (isStereo && leftSamples !== rightSamples) {
+  if (hasStereoChannels) {
     visualizer.drawStereoWaveform(leftSamples, rightSamples, previewRate);
   } else {
     visualizer.drawWaveform(leftSamples, previewRate);
   }
 
   // Load and play
-  if (isStereo && leftSamples !== rightSamples) {
+  if (hasStereoChannels) {
     previewPlayer.loadStereo(leftSamples, rightSamples, previewRate);
   } else if (isStereo) {
     previewPlayer.load(leftSamples, previewRate, 2);
@@ -965,10 +967,15 @@ function init() {
   renderSignalPresets();
   renderFormatPresets();
   bindEvents();
+
+  // Auto-select "Quick Room Test" preset on fresh start
+  const firstPresetBtn = els.signalPresetsBar.querySelector('.preset-btn');
+  if (firstPresetBtn) firstPresetBtn.click();
+
   updateVisibility();
   updateEstimatedSize();
   updateFrequencyPlot();
-  visualizer.clear();
+  regenerateVisualization();
 }
 
 init();
