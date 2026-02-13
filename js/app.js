@@ -243,7 +243,7 @@ function updatePreviewNote() {
   const previewRate = Math.min(params.sampleRate, 48000);
   if (previewRate < params.sampleRate) {
     els.previewNote.textContent =
-      `Preview plays at ${previewRate / 1000} kHz (output will be ${params.sampleRate / 1000} kHz)`;
+      `Preview plays at ${previewRate / 1000} kHz (download will be ${params.sampleRate / 1000} kHz)`;
   } else {
     els.previewNote.textContent = '';
   }
