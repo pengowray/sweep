@@ -231,6 +231,9 @@ function updateAdvancedVisibility(type, isESS, isSweep, isNoise, isMLS, isSteppe
   els.repetitionsGroup.style.pointerEvents = hasReps ? '' : 'none';
   els.interSweepSilenceGroup.style.opacity = hasReps ? '1' : '0.4';
   els.interSweepSilenceGroup.style.pointerEvents = hasReps ? '' : 'none';
+  if (!hasReps) {
+    els.repetitions.value = 1;
+  }
 
   // Inverse filter: ESS only (already hidden, but also grey)
   els.inverseFilterGroup.style.opacity = isESS ? '1' : '0.4';
@@ -832,10 +835,15 @@ function renderFormatPresets() {
     btn.className = 'preset-btn';
     btn.textContent = preset.name;
     btn.title = preset.description;
+    btn.dataset.name = preset.name;
     btn.addEventListener('click', () => {
       applyFormatPreset(preset, els);
-      if (activeFormatPresetBtn) activeFormatPresetBtn.classList.remove('active');
+      if (activeFormatPresetBtn) {
+        activeFormatPresetBtn.classList.remove('active');
+        activeFormatPresetBtn.textContent = activeFormatPresetBtn.dataset.name;
+      }
       btn.classList.add('active');
+      if (preset.emoji) btn.textContent = preset.name + ' ' + preset.emoji;
       activeFormatPresetBtn = btn;
 
       // Re-resolve any active signal preset that uses 'nyquist'
@@ -929,6 +937,7 @@ function bindEvents() {
     // Clear format preset highlight when manually changing sample rate
     if (activeFormatPresetBtn) {
       activeFormatPresetBtn.classList.remove('active');
+      activeFormatPresetBtn.textContent = activeFormatPresetBtn.dataset.name;
       activeFormatPresetBtn = null;
     }
   });
@@ -938,6 +947,7 @@ function bindEvents() {
     radio.addEventListener('change', () => {
       if (activeFormatPresetBtn) {
         activeFormatPresetBtn.classList.remove('active');
+        activeFormatPresetBtn.textContent = activeFormatPresetBtn.dataset.name;
         activeFormatPresetBtn = null;
       }
     });

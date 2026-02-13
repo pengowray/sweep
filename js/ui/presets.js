@@ -298,6 +298,7 @@ export const FORMAT_PRESETS = [
   {
     id: 'chiropterologist',
     name: 'Chiropterologist',
+    emoji: '\u{1F987}',
     description: '384 kHz / 24-bit — Bat detector and ultrasonic measurement',
     sampleRate: 384000,
     bitDepth: 24,
