@@ -129,10 +129,12 @@
           <div class="control-group">
             <label for="sampleRate">Sample Rate</label>
             <select id="sampleRate">
+              <option value="22050">22,050 Hz</option>
               <option value="44100">44,100 Hz</option>
               <option value="48000" selected>48,000 Hz</option>
               <option value="88200">88,200 Hz</option>
               <option value="96000">96,000 Hz</option>
+              <option value="176400">176,400 Hz</option>
               <option value="192000">192,000 Hz</option>
               <option value="384000">384,000 Hz</option>
               <option value="768000">768,000 Hz</option>
@@ -306,15 +308,32 @@
       <span id="estimatedSize" class="estimate-value">—</span>
       <span id="sizeWarning" class="size-warning" hidden></span>
     </section>
+
+    <!-- About / How to use -->
+    <section class="about-section">
+      <p>This utility generates high-precision exponential sine sweeps designed for acoustic measurement. By recording these sweeps in a physical space or through analog gear, you capture the raw "fingerprint" of the environment.</p>
+      <p>To use these recordings in a convolution reverb you must first perform deconvolution, a process that compares the recorded signal against the original source to extract a time-aligned Impulse Response (IR). Once processed, these IRs can be loaded into any standard convolution engine to replicate the space's sonic characteristics. It also captures the characteristics of the recording equipment, such as the microphone or speaker.</p>
+
+      <h3>Deconvolution software</h3>
+      <p>Once you have your recording, you can bring it to one of these tools to deconvolve the IR:</p>
+      <ul>
+        <li><a href="https://www.voxengo.com/product/deconvolver/" target="_blank" rel="noopener">Voxengo Deconvolver</a> (Windows)</li>
+        <li><a href="https://www.roomeqwizard.com/" target="_blank" rel="noopener">REW (Room EQ Wizard)</a></li>
+        <li><a href="https://www.reaper.fm/guides/ReaEffectsGuide.pdf" target="_blank" rel="noopener">REAPER (ReaVerb)</a></li>
+        <li><a href="https://www.ableton.com/en/packs/convolution-reverb/" target="_blank" rel="noopener">Ableton Live (Convolution Reverb Pro)</a></li>
+        <li><a href="https://artalabs.hr/" target="_blank" rel="noopener">ARTA</a> (Windows/Wine)</li>
+        <li><a href="https://www.apple.com/au/logic-pro/" target="_blank" rel="noopener">Logic Pro: Impulse Response Utility</a> (OSX)</li>
+        <li><a href="https://www.rodetest.com/specs" target="_blank" rel="noopener">FuzzMeasure</a> (OSX)</li>
+      </ul>
+      <p>Links are not endorsements.</p>
+    </section>
   </main>
 
   <footer class="footer">
-    <p>Sine Sweep Generator v1.0.6 by Pengo Wray &mdash; Generate high-fidelity test signals to capture impulse responses. View the source on <a href="https://github.com/pengo/sweep" target="_blank" rel="noopener noreferrer">GitHub</a>.</p>
-    <p>&nbsp;</p>
-    <p>This utility generates high-precision exponential sine sweeps designed for acoustic measurement. By recording these sweeps in a physical space or through analog gear, you capture the raw "fingerprint" of the environment (and gear).</p>
-    <p>To use these recordings in a convolution reverb you must first perform deconvolution, a process that compares the recorded signal against the original source to extract a time-aligned Impulse Response (IR). Once processed, these IRs can be loaded into any standard convolution engine to replicate the space's sonic characteristics.</p>
+    <p>Sine Sweep Generator v1.0.7 by Pengo Wray &mdash; Generate high-fidelity test signals to capture impulse responses. View the source on <a href="https://github.com/pengowray/sweep" target="_blank" rel="noopener noreferrer">GitHub</a>.</p>
   </footer>
 
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
+—

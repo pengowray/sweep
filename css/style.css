@@ -39,6 +39,16 @@ body {
   min-height: 100vh;
 }
 
+a {
+  color: var(--cyan);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}
+
 /* Header */
 .header {
   background: linear-gradient(135deg, #1e1f2b 0%, #282a36 100%);
@@ -540,6 +550,36 @@ select option:disabled {
   font-size: 0.72rem;
   display: block;
   margin-top: 0.2rem;
+}
+
+/* About / how-to section */
+.about-section {
+  max-width: 680px;
+  margin: 2rem auto 0;
+  padding: 0 1rem;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.about-section p {
+  margin-bottom: 0.75rem;
+}
+
+.about-section h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 1.5rem 0 0.5rem;
+}
+
+.about-section ul {
+  padding-left: 1.25rem;
+  margin: 0;
+}
+
+.about-section li {
+  margin-bottom: 0.5rem;
 }
 
 /* Footer */
