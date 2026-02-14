@@ -278,6 +278,17 @@
             <p class="hint">Reduces psychoacoustic peak (110 Hz–20 kHz)</p>
           </div>
 
+          <div class="control-group" id="ditherGroup">
+            <label for="dither">Dithering</label>
+            <select id="dither">
+              <option value="off">Off</option>
+              <option value="all">Entire file (TPDF)</option>
+              <option value="audio">Audio only (TPDF)</option>
+              <option value="silence">Silence only (TPDF)</option>
+            </select>
+            <p class="hint">Noise before quantization; use "Silence only" for 32-bit float to keep audio chains alive</p>
+          </div>
+
           <div class="control-group" id="seedGroup" hidden>
             <label for="noiseSeed">Random Seed</label>
             <div class="seed-row">

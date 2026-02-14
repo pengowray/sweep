@@ -8,7 +8,7 @@ import { encodeWAV, generateFilename, buildBwfDescription } from './audio/wav-en
 import {
   applyFades, applyGain, addSilence, repeatWithSilence,
   dBFSToLinear, essOneOctaveFadeSamples, decimateForVisualization,
-  applyAWeighting
+  applyAWeighting, applyDither
 } from './utils.js';
 
 self.onmessage = function (event) {
@@ -137,6 +137,11 @@ self.onmessage = function (event) {
     samples = addSilence(samples, leadSamples, trailSamples);
 
     postProgress(0.55);
+
+    // Phase 5b: Dithering (before quantization)
+    if (params.dither && params.dither !== 'off') {
+      applyDither(samples, params.bitDepth, params.dither, leadSamples, trailSamples);
+    }
 
     // Phase 6: Send decimated waveform for visualization
     const vizData = decimateForVisualization(samples, 4000);

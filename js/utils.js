@@ -333,6 +333,29 @@ function applyAWeightStepped(samples, params) {
 }
 
 /**
+ * Apply TPDF dither in-place.
+ * For PCM (16/24-bit): corrects quantization error at 1 LSB amplitude.
+ * For float (32-bit): uses 24-bit-equivalent amplitude (~−138 dBFS) —
+ *   useful for keeping audio chains/hardware alive during long digital silence.
+ * @param {Float64Array} samples - Full buffer (including silence)
+ * @param {number} bitDepth - 16, 24, or 32
+ * @param {string} scope - 'all' | 'audio' | 'silence'
+ * @param {number} leadSamples - Number of silent samples at start
+ * @param {number} trailSamples - Number of silent samples at end
+ */
+export function applyDither(samples, bitDepth, scope, leadSamples, trailSamples) {
+  // PCM uses bit-depth LSB; float uses 24-bit equivalent (~−138 dBFS)
+  const lsb = bitDepth === 16 ? 1 / 32768 : 1 / 8388608;
+  const N = samples.length;
+  for (let i = 0; i < N; i++) {
+    const inSilence = i < leadSamples || i >= N - trailSamples;
+    if (scope === 'audio' && inSilence) continue;
+    if (scope === 'silence' && !inSilence) continue;
+    samples[i] += (Math.random() + Math.random() - 1) * lsb;
+  }
+}
+
+/**
  * Estimate the WAV file size in bytes for given parameters.
  * @param {object} params
  * @returns {number}

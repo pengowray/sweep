@@ -34,6 +34,8 @@ const els = {
   interSweepSilence: $('interSweepSilence'),
   generateInverse: $('generateInverse'),
   aWeighting: $('aWeighting'),
+  dither: $('dither'),
+  ditherGroup: $('ditherGroup'),
   mlsOrder: $('mlsOrder'),
   stepsPerOctave: $('stepsPerOctave'),
   dwellTime: $('dwellTime'),
@@ -132,6 +134,7 @@ function getParams() {
     interSweepSilence: parseFloat(els.interSweepSilence.value) || 0,
     generateInverse: els.generateInverse.checked,
     aWeighting: els.aWeighting.checked,
+    dither: els.dither.value,
     mlsOrder: parseInt(els.mlsOrder.value),
     stepsPerOctave: parseInt(els.stepsPerOctave.value),
     dwellTime: parseFloat(els.dwellTime.value),
@@ -282,6 +285,17 @@ function updateAdvancedVisibility(type, isESS, isSweep, isNoise, isMLS, isSteppe
   els.aWeightGroup.style.pointerEvents = hasAWeight ? '' : 'none';
   if (!hasAWeight && els.aWeighting.checked) {
     els.aWeighting.checked = false;
+  }
+}
+
+// ─── Dither Default by Bit Depth ────────────────────────────────
+function updateDitherDefault() {
+  const bitDepth = parseInt(document.querySelector('input[name="bitDepth"]:checked')?.value) || 24;
+  if (bitDepth === 16 && els.dither.value === 'off') {
+    els.dither.value = 'all';
+  } else if (bitDepth === 32 && els.dither.value !== 'off' && els.dither.value !== 'silence') {
+    // For float, "all" and "audio" dithering on signal content is meaningless — reset to silence-only
+    els.dither.value = 'silence';
   }
 }
 
@@ -1092,7 +1106,7 @@ function bindEvents() {
     }
   });
 
-  // Bit depth change → clear format preset highlight
+  // Bit depth change → clear format preset highlight, update dither default
   document.querySelectorAll('input[name="bitDepth"]').forEach((radio) => {
     radio.addEventListener('change', () => {
       if (activeFormatPresetBtn) {
@@ -1100,6 +1114,7 @@ function bindEvents() {
         activeFormatPresetBtn.textContent = activeFormatPresetBtn.dataset.name;
         activeFormatPresetBtn = null;
       }
+      updateDitherDefault();
     });
   });
 
@@ -1133,6 +1148,7 @@ function init() {
   if (firstPresetBtn) firstPresetBtn.click();
 
   updateVisibility();
+  updateDitherDefault();
   updateEstimatedSize();
   updateFrequencyPlot();
   regenerateVisualization();
