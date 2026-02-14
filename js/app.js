@@ -1057,7 +1057,7 @@ function bindEvents() {
   });
 
   // Start frequency quick presets
-  document.querySelectorAll('.freq-preset-btn').forEach((btn) => {
+  document.querySelectorAll('.freq-preset-btn[data-freq]').forEach((btn) => {
     btn.addEventListener('click', () => {
       els.startFreq.value = btn.dataset.freq;
       els.startFreq.dispatchEvent(new Event('input', { bubbles: true }));
