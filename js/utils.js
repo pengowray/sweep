@@ -197,6 +197,124 @@ export function decimateForVisualization(samples, maxPoints) {
 }
 
 /**
+ * A-weighting in dB for a given frequency (IEC 61672:2003).
+ * Returns ~0 dB at 1 kHz, large negative values at low frequencies.
+ * @param {number} f - Frequency in Hz (must be > 0)
+ * @returns {number} A-weighting in dB
+ */
+export function aWeightDB(f) {
+  const f2 = f * f;
+  const f4 = f2 * f2;
+  const num = 12194 * 12194 * f4;
+  const denom = (f2 + 20.6 * 20.6) * (f2 + 12194 * 12194) *
+    Math.sqrt((f2 + 107.7 * 107.7) * (f2 + 737.9 * 737.9));
+  const rA = num / denom;
+  return 20 * Math.log10(rA) + 2.0;
+}
+
+/**
+ * Apply inverse A-weighting amplitude envelope to sweep samples in-place.
+ * Shapes the sweep so it sounds perceptually even across frequencies.
+ * The envelope is normalized so the maximum amplitude remains 1.0.
+ *
+ * @param {Float64Array} samples
+ * @param {object} params
+ * @param {number} params.startFreq
+ * @param {number} params.endFreq
+ * @param {number} params.duration
+ * @param {number} params.sampleRate
+ * @param {string} params.signalType - 'ess', 'linear', or 'stepped'
+ * @param {number} [params.stepsPerOctave]
+ * @param {number} [params.dwellTime]
+ * @param {number} [params.gapTime]
+ * @param {string} [params.steppedSpacing]
+ */
+export function applyAWeighting(samples, params) {
+  const { startFreq, endFreq, duration, sampleRate, signalType } = params;
+  const N = samples.length;
+
+  if (signalType === 'stepped') {
+    applyAWeightStepped(samples, params);
+    return;
+  }
+
+  // For ESS and linear sweeps, compute instantaneous frequency per sample
+  const lnRatio = signalType === 'ess' ? Math.log(endFreq / startFreq) : 0;
+  const chirpRate = signalType === 'linear' ? (endFreq - startFreq) / duration : 0;
+
+  // Find the normalization factor: max inverse gain across the frequency range.
+  // For both ESS and linear, the minimum A-weight dB (max inverse gain) occurs
+  // at whichever endpoint has the lower A-weight value.
+  const aStart = aWeightDB(startFreq);
+  const aEnd = aWeightDB(endFreq);
+  const minAWeight = Math.min(aStart, aEnd);
+  const maxInverseGain = Math.pow(10, -minAWeight / 20);
+
+  for (let i = 0; i < N; i++) {
+    const t = i / sampleRate;
+    let freq;
+    if (signalType === 'ess') {
+      freq = startFreq * Math.exp(t / duration * lnRatio);
+    } else {
+      freq = startFreq + chirpRate * t;
+    }
+
+    const aDb = aWeightDB(freq);
+    const inverseGain = Math.pow(10, -aDb / 20);
+    samples[i] *= inverseGain / maxInverseGain;
+  }
+}
+
+/**
+ * Apply inverse A-weighting to stepped sine samples.
+ * Each step has a constant frequency, so gain is constant per step.
+ */
+function applyAWeightStepped(samples, params) {
+  const { startFreq, endFreq, sampleRate, stepsPerOctave, dwellTime, gapTime } = params;
+  const spacing = params.steppedSpacing || 'logarithmic';
+
+  // Reconstruct frequency list (same logic as generateSteppedSine)
+  const frequencies = [];
+  if (spacing === 'logarithmic') {
+    const numOctaves = Math.log2(endFreq / startFreq);
+    const totalSteps = Math.round(numOctaves * stepsPerOctave);
+    for (let i = 0; i <= totalSteps; i++) {
+      const freq = startFreq * Math.pow(2, i / stepsPerOctave);
+      if (freq <= endFreq * 1.001) frequencies.push(freq);
+    }
+  } else {
+    const numOctaves = Math.log2(endFreq / startFreq);
+    const totalSteps = Math.max(1, Math.round(numOctaves * stepsPerOctave));
+    const stepSize = (endFreq - startFreq) / totalSteps;
+    for (let i = 0; i <= totalSteps; i++) {
+      frequencies.push(startFreq + i * stepSize);
+    }
+  }
+
+  // Find normalization: max inverse gain across all step frequencies
+  let maxInverseGain = 0;
+  const stepGains = frequencies.map(freq => {
+    const g = Math.pow(10, -aWeightDB(freq) / 20);
+    if (g > maxInverseGain) maxInverseGain = g;
+    return g;
+  });
+
+  const dwellSamples = Math.round(dwellTime * sampleRate);
+  const gapSamples = Math.round(gapTime * sampleRate);
+  const stepLen = dwellSamples + gapSamples;
+
+  for (let step = 0; step < frequencies.length; step++) {
+    const gain = stepGains[step] / maxInverseGain;
+    const offset = step * stepLen;
+    const end = Math.min(offset + dwellSamples, samples.length);
+    for (let i = offset; i < end; i++) {
+      samples[i] *= gain;
+    }
+    // Gap samples are already zero, no need to scale
+  }
+}
+
+/**
  * Estimate the WAV file size in bytes for given parameters.
  * @param {object} params
  * @returns {number}

@@ -7,7 +7,8 @@ import { generateSteppedSine } from './generators/stepped-sine.js';
 import { encodeWAV, generateFilename, buildBwfDescription } from './audio/wav-encoder.js';
 import {
   applyFades, applyGain, addSilence, repeatWithSilence,
-  dBFSToLinear, essOneOctaveFadeSamples, decimateForVisualization
+  dBFSToLinear, essOneOctaveFadeSamples, decimateForVisualization,
+  applyAWeighting
 } from './utils.js';
 
 self.onmessage = function (event) {
@@ -111,6 +112,11 @@ self.onmessage = function (event) {
     );
 
     postProgress(0.45);
+
+    // Phase 2b: A-weighted loudness compensation
+    if (params.aWeighting && ['ess', 'linear', 'stepped'].includes(params.signalType)) {
+      applyAWeighting(samples, params);
+    }
 
     // Phase 3: Apply output level gain
     const linearGain = dBFSToLinear(params.outputLevel != null ? params.outputLevel : -3);

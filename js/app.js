@@ -8,7 +8,7 @@ import { generateExponentialSweep, generateLinearSweep } from './generators/swee
 import { generateWhiteNoise, generatePinkNoise } from './generators/noise.js';
 import { generateMLS, mlsDuration } from './generators/mls.js';
 import { generateSteppedSine, steppedSineDuration } from './generators/stepped-sine.js';
-import { applyFades, applyGain, addSilence, repeatWithSilence } from './utils.js';
+import { applyFades, applyGain, addSilence, repeatWithSilence, applyAWeighting } from './utils.js';
 
 // ─── DOM References ───────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -33,6 +33,7 @@ const els = {
   repetitions: $('repetitions'),
   interSweepSilence: $('interSweepSilence'),
   generateInverse: $('generateInverse'),
+  aWeighting: $('aWeighting'),
   mlsOrder: $('mlsOrder'),
   stepsPerOctave: $('stepsPerOctave'),
   dwellTime: $('dwellTime'),
@@ -49,6 +50,7 @@ const els = {
   mlsControls: $('mlsControls'),
   steppedControls: $('steppedControls'),
   inverseFilterGroup: $('inverseFilterGroup'),
+  aWeightGroup: $('aWeightGroup'),
   fadeInDurationGroup: $('fadeInDurationGroup'),
   fadeInTypeGroup: $('fadeInTypeGroup'),
   fadeOutTypeGroup: $('fadeOutTypeGroup'),
@@ -128,6 +130,7 @@ function getParams() {
     repetitions: parseInt(els.repetitions.value) || 1,
     interSweepSilence: parseFloat(els.interSweepSilence.value) || 0,
     generateInverse: els.generateInverse.checked,
+    aWeighting: els.aWeighting.checked,
     mlsOrder: parseInt(els.mlsOrder.value),
     stepsPerOctave: parseInt(els.stepsPerOctave.value),
     dwellTime: parseFloat(els.dwellTime.value),
@@ -252,6 +255,11 @@ function updateAdvancedVisibility(type, isESS, isSweep, isNoise, isMLS, isSteppe
   // Inverse filter: ESS only (already hidden, but also grey)
   els.inverseFilterGroup.style.opacity = isESS ? '1' : '0.4';
   els.inverseFilterGroup.style.pointerEvents = isESS ? '' : 'none';
+
+  // A-weighting: sweep types only (ESS, linear, stepped)
+  const hasAWeight = isSweep || isStepped;
+  els.aWeightGroup.style.opacity = hasAWeight ? '1' : '0.4';
+  els.aWeightGroup.style.pointerEvents = hasAWeight ? '' : 'none';
 }
 
 // ─── Preview Quality Note ───────────────────────────────────────
@@ -658,6 +666,11 @@ function generatePreviewSamples(params, previewRate) {
   }
   const fadeOutSamples = Math.round(parseFloat(params.fadeOutDuration || 0) * previewRate);
   applyFades(samples, params.fadeInType, fadeInSamples, params.fadeOutType, fadeOutSamples);
+
+  // A-weighted loudness compensation
+  if (params.aWeighting && ['ess', 'linear', 'stepped'].includes(params.signalType)) {
+    applyAWeighting(samples, { ...params, sampleRate: previewRate });
+  }
 
   // Gain
   applyGain(samples, dBFSToLinear(params.outputLevel));
