@@ -243,12 +243,14 @@ export function applyAWeighting(samples, params) {
   // then normalize so the peak amplitude equals the original peak.
   // This correctly accounts for fades that have already been applied.
   //
-  // Frequency is clamped to a minimum of 100 Hz for the A-weight calculation.
-  // This avoids extreme sub-bass boost (50+ dB at 20 Hz) while still giving
-  // meaningful compensation across the audible range (~100 Hz to 20 kHz).
+  // Frequency is clamped to [200, 20000] Hz for the A-weight calculation.
+  // Floor at 200 Hz avoids extreme sub-bass boost; ceiling at 20 kHz prevents
+  // ultrasonic runaway. This gives ~12 dB of dynamic range — a moderate,
+  // practical compensation across the core audible band.
   const lnRatio = signalType === 'ess' ? Math.log(endFreq / startFreq) : 0;
   const chirpRate = signalType === 'linear' ? (endFreq - startFreq) / duration : 0;
-  const A_WEIGHT_FLOOR_HZ = 100;
+  const A_WEIGHT_FLOOR_HZ = 200;
+  const A_WEIGHT_CEIL_HZ = 20000;
 
   // Use 1 kHz (A-weight ≈ 0 dB) as reference so inverse gain ≈ 1.0 at 1 kHz.
   const refGain = Math.pow(10, -aWeightDB(1000) / 20); // ≈ 1.0
@@ -263,7 +265,7 @@ export function applyAWeighting(samples, params) {
       freq = startFreq + chirpRate * t;
     }
 
-    const clampedFreq = Math.max(freq, A_WEIGHT_FLOOR_HZ);
+    const clampedFreq = Math.min(Math.max(freq, A_WEIGHT_FLOOR_HZ), A_WEIGHT_CEIL_HZ);
     const inverseGain = Math.pow(10, -aWeightDB(clampedFreq) / 20) / refGain;
     samples[i] *= inverseGain;
   }
@@ -308,11 +310,12 @@ function applyAWeightStepped(samples, params) {
     }
   }
 
-  // Compute inverse A-weight gain per step (referenced to 1 kHz, floor at 100 Hz)
-  const A_WEIGHT_FLOOR_HZ = 100;
+  // Compute inverse A-weight gain per step (referenced to 1 kHz, clamped to [200, 20000] Hz)
+  const A_WEIGHT_FLOOR_HZ = 200;
+  const A_WEIGHT_CEIL_HZ = 20000;
   const refGain = Math.pow(10, -aWeightDB(1000) / 20);
   const stepGains = frequencies.map(freq =>
-    Math.pow(10, -aWeightDB(Math.max(freq, A_WEIGHT_FLOOR_HZ)) / 20) / refGain
+    Math.pow(10, -aWeightDB(Math.min(Math.max(freq, A_WEIGHT_FLOOR_HZ), A_WEIGHT_CEIL_HZ)) / 20) / refGain
   );
 
   const dwellSamples = Math.round(dwellTime * sampleRate);
