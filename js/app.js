@@ -1044,6 +1044,18 @@ function bindEvents() {
     els.outputLevel.dispatchEvent(new Event('change', { bubbles: true }));
   });
 
+  // Output level quick presets
+  document.querySelectorAll('.level-preset-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const val = parseFloat(btn.dataset.level);
+      els.outputLevel.value = val;
+      els.outputLevelInput.value = val;
+      els.outputLevelDisplay.textContent = val.toFixed(1);
+      els.outputLevel.dispatchEvent(new Event('input', { bubbles: true }));
+      els.outputLevel.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  });
+
   // Start frequency quick presets
   document.querySelectorAll('.freq-preset-btn').forEach((btn) => {
     btn.addEventListener('click', () => {

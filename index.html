@@ -176,6 +176,12 @@
 
           <div class="control-group control-group-full">
             <label for="outputLevel">Output Level: <span id="outputLevelDisplay">-3.0</span> dBFS</label>
+            <div class="freq-presets">
+              <button type="button" class="freq-preset-btn level-preset-btn" data-level="-20">-20</button>
+              <button type="button" class="freq-preset-btn level-preset-btn" data-level="-6">-6</button>
+              <button type="button" class="freq-preset-btn level-preset-btn" data-level="-3">-3</button>
+              <button type="button" class="freq-preset-btn level-preset-btn" data-level="0">0</button>
+            </div>
             <div class="level-row">
               <input type="range" id="outputLevel" min="-60" max="0" value="-3" step="0.1">
               <input type="number" id="outputLevelInput" value="-3" min="-60" max="0" step="0.1" class="level-input">
