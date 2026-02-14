@@ -188,6 +188,22 @@ function updateVisibility() {
     els.mlsDuration.textContent = dur.toFixed(3) + 's';
   }
 
+  // Disable duration field for stepped sine and show computed time
+  if (isStepped) {
+    const dur = steppedSineDuration({
+      startFreq: parseFloat(els.startFreq.value),
+      endFreq: parseFloat(els.endFreq.value),
+      stepsPerOctave: parseInt(els.stepsPerOctave.value),
+      dwellTime: parseFloat(els.dwellTime.value),
+      gapTime: parseFloat(els.gapTime.value),
+      spacing: els.steppedSpacing.value,
+    });
+    els.duration.value = dur.toFixed(2);
+    els.duration.disabled = true;
+  } else if (!isMLS) {
+    els.duration.disabled = false;
+  }
+
   // Update preview note
   updatePreviewNote();
 
@@ -860,11 +876,13 @@ function startPreview() {
   const totalDuration = leftSamples.length / previewRate;
   previewPlayer.onTimeUpdate((time) => {
     visualizer.drawCursor(time, totalDuration);
+    visualizer.drawFrequencyCursor(time, totalDuration);
   });
 
   previewPlayer.onEnded(() => {
     els.previewBtn.hidden = false;
     els.stopBtn.hidden = true;
+    visualizer.fadeOutCursors();
     // If params changed during playback, regenerate visualization now
     if (vizStale) {
       regenerateVisualization();
@@ -876,6 +894,7 @@ function stopPreview() {
   previewPlayer.stop();
   els.previewBtn.hidden = false;
   els.stopBtn.hidden = true;
+  visualizer.fadeOutCursors();
   // If params changed during playback, regenerate visualization now
   if (vizStale) {
     regenerateVisualization();

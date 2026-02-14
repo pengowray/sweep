@@ -25,6 +25,11 @@ export class Visualizer {
     this._lastFreqParams = null;
     this._lastSampleRate = null;
 
+    // Cursor state for fade-out
+    this._lastCursorTime = 0;
+    this._lastCursorDuration = 0;
+    this._fadeRafId = null;
+
     // Set up ResizeObserver for responsive canvases
     this._resizeObserver = new ResizeObserver(() => this._handleResize());
     this._resizeObserver.observe(waveformCanvas.parentElement);
@@ -443,6 +448,170 @@ export class Visualizer {
     ctx.moveTo(x, 0);
     ctx.lineTo(x, h);
     ctx.stroke();
+  }
+
+  /**
+   * Draw a vertical playback cursor on the frequency plot, with a frequency label.
+   * @param {number} timeSeconds
+   * @param {number} totalDuration
+   */
+  drawFrequencyCursor(timeSeconds, totalDuration) {
+    if (!totalDuration || totalDuration <= 0 || !this._lastFreqParams) return;
+
+    // Redraw frequency plot to clear old cursor
+    this._drawFrequencyPlotInternal(this._lastFreqParams);
+
+    const params = this._lastFreqParams;
+    const ctx = this._freqCanvas.getContext('2d');
+    const { w, h } = this._dims(this._freqCanvas);
+    const x = (timeSeconds / totalDuration) * w;
+
+    // Store for fade-out
+    this._lastCursorTime = timeSeconds;
+    this._lastCursorDuration = totalDuration;
+
+    // Draw cursor line
+    ctx.strokeStyle = this._cursorColor;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, h);
+    ctx.stroke();
+
+    // Compute current frequency
+    const freq = this._getFrequencyAtTime(timeSeconds, params);
+    if (freq != null) {
+      const label = freq >= 1000 ? (freq / 1000).toFixed(1) + ' kHz' : Math.round(freq) + ' Hz';
+      ctx.font = '10px sans-serif';
+      const textW = ctx.measureText(label).width;
+      // Position label to the right of the cursor, flip to left if near edge
+      const labelX = (x + textW + 8 > w) ? x - textW - 6 : x + 4;
+      // Draw background pill
+      ctx.fillStyle = this._bgColor;
+      ctx.globalAlpha = 0.8;
+      ctx.fillRect(labelX - 2, 2, textW + 4, 14);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = this._cursorColor;
+      ctx.fillText(label, labelX, 13);
+    }
+  }
+
+  /**
+   * Compute the instantaneous frequency at a given time from freq plot params.
+   * @returns {number|null}
+   */
+  _getFrequencyAtTime(timeSeconds, params) {
+    const { startFreq, endFreq, type } = params;
+    const reps = params.repetitions || 1;
+    const singleDuration = params.singleSweepDuration || params.duration;
+    const interSilenceMs = params.interSweepSilence || 0;
+    const leadMs = params.leadSilence || 0;
+    const leadSec = leadMs / 1000;
+    const interSilenceSec = interSilenceMs / 1000;
+
+    // Check if we're in the lead silence
+    if (timeSeconds < leadSec) return null;
+
+    // Find which repetition we're in
+    for (let r = 0; r < reps; r++) {
+      const repStartSec = leadSec + r * (singleDuration + interSilenceSec);
+      const repEndSec = repStartSec + singleDuration;
+
+      if (timeSeconds < repStartSec) return null; // in inter-sweep gap
+      if (timeSeconds > repEndSec) continue; // past this rep
+
+      const t = (timeSeconds - repStartSec) / singleDuration; // 0..1 within this rep
+
+      if (type === 'stepped' && params.steppedFrequencies && params.steppedFrequencies.length) {
+        const frequencies = params.steppedFrequencies;
+        const dwellTime = params.dwellTime || 0.5;
+        const gapTime = params.gapTime || 0;
+        const stepDuration = dwellTime + gapTime;
+        const timeInSweep = t * singleDuration;
+        const stepIndex = Math.floor(timeInSweep / stepDuration);
+        const timeInStep = timeInSweep - stepIndex * stepDuration;
+        if (stepIndex >= frequencies.length) return null;
+        if (timeInStep > dwellTime) return null; // in gap between steps
+        return frequencies[stepIndex];
+      } else if (type === 'exponential') {
+        return startFreq * Math.pow(endFreq / startFreq, t);
+      } else {
+        return startFreq + (endFreq - startFreq) * t;
+      }
+    }
+
+    return null; // in trailing silence
+  }
+
+  /**
+   * Fade out cursors on both canvases over ~500ms.
+   */
+  fadeOutCursors() {
+    // Cancel any existing fade
+    if (this._fadeRafId) {
+      cancelAnimationFrame(this._fadeRafId);
+      this._fadeRafId = null;
+    }
+
+    const time = this._lastCursorTime;
+    const duration = this._lastCursorDuration;
+    if (!duration || duration <= 0) return;
+
+    const fadeMs = 500;
+    const startMs = performance.now();
+
+    const tick = () => {
+      const elapsed = performance.now() - startMs;
+      const alpha = Math.max(0, 1 - elapsed / fadeMs);
+
+      // Redraw waveform clean
+      if (this._lastWaveData && this._lastWaveDataR) {
+        this._drawStereoWaveformInternal(this._lastWaveData, this._lastWaveDataR, this._lastSampleRate);
+      } else if (this._lastWaveData) {
+        this._drawWaveformInternal(this._lastWaveData, this._lastSampleRate);
+      }
+
+      // Redraw frequency plot clean
+      if (this._lastFreqParams) {
+        this._drawFrequencyPlotInternal(this._lastFreqParams);
+      }
+
+      if (alpha > 0) {
+        // Draw waveform cursor with fading alpha
+        const wCtx = this._waveCanvas.getContext('2d');
+        const wDims = this._dims(this._waveCanvas);
+        const wx = (time / duration) * wDims.w;
+        wCtx.globalAlpha = alpha;
+        wCtx.strokeStyle = this._cursorColor;
+        wCtx.lineWidth = 1.5;
+        wCtx.beginPath();
+        wCtx.moveTo(wx, 0);
+        wCtx.lineTo(wx, wDims.h);
+        wCtx.stroke();
+        wCtx.globalAlpha = 1;
+
+        // Draw frequency cursor with fading alpha
+        if (this._lastFreqParams) {
+          const fCtx = this._freqCanvas.getContext('2d');
+          const fDims = this._dims(this._freqCanvas);
+          const fx = (time / duration) * fDims.w;
+          fCtx.globalAlpha = alpha;
+          fCtx.strokeStyle = this._cursorColor;
+          fCtx.lineWidth = 1.5;
+          fCtx.beginPath();
+          fCtx.moveTo(fx, 0);
+          fCtx.lineTo(fx, fDims.h);
+          fCtx.stroke();
+          fCtx.globalAlpha = 1;
+        }
+
+        this._fadeRafId = requestAnimationFrame(tick);
+      } else {
+        this._fadeRafId = null;
+      }
+    };
+
+    this._fadeRafId = requestAnimationFrame(tick);
   }
 
   /**
