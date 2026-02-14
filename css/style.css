@@ -263,10 +263,15 @@ input[type="range"]::-moz-range-thumb {
   line-height: 1.3;
 }
 
-.freq-preset-btn:hover {
+.freq-preset-btn:hover:not(:disabled) {
   background: var(--bg-hover);
   border-color: var(--accent);
   color: var(--text);
+}
+
+.freq-preset-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 /* Checkbox */

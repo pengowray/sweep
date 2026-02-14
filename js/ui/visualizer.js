@@ -311,7 +311,7 @@ export class Visualizer {
     ctx.fillRect(0, 0, w, h);
 
     const { startFreq, endFreq, type } = params;
-    if (!startFreq || !endFreq || startFreq >= endFreq) return;
+    if (startFreq == null || !endFreq || startFreq >= endFreq || startFreq < 0) return;
 
     const reps = params.repetitions || 1;
     const singleDuration = params.singleSweepDuration || params.duration;
@@ -322,8 +322,9 @@ export class Visualizer {
 
     const totalDuration = sweepDuration + leadMs / 1000 + trailMs / 1000;
 
-    // Log scale for frequency axis
-    const logMin = Math.log10(startFreq);
+    // Log scale for frequency axis (clamp to 1 Hz minimum for log display)
+    const displayMinFreq = Math.max(1, startFreq);
+    const logMin = Math.log10(displayMinFreq);
     const logMax = Math.log10(endFreq);
     const margin = 4;
 
@@ -361,28 +362,69 @@ export class Visualizer {
       const repStartX = (repStartSec / totalDuration) * w;
       const repEndX = (repEndSec / totalDuration) * w;
 
-      ctx.beginPath();
-      const steps = Math.min(Math.round(repEndX - repStartX), 500);
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps;
-        let freq;
-
-        if (type === 'exponential') {
-          freq = startFreq * Math.pow(endFreq / startFreq, t);
-        } else if (type === 'linear') {
-          freq = startFreq + (endFreq - startFreq) * t;
+      if (type === 'stepped' && params.stepsPerOctave) {
+        // Draw discrete horizontal steps
+        const frequencies = [];
+        const sf = Math.max(1, startFreq);
+        if (params.steppedSpacing === 'logarithmic') {
+          const numOctaves = Math.log2(endFreq / sf);
+          const totalSteps = Math.round(numOctaves * params.stepsPerOctave);
+          for (let i = 0; i <= totalSteps; i++) {
+            const freq = sf * Math.pow(2, i / params.stepsPerOctave);
+            if (freq <= endFreq * 1.001) frequencies.push(freq);
+          }
         } else {
-          freq = startFreq * Math.pow(endFreq / startFreq, t);
+          const numOctaves = Math.log2(endFreq / sf);
+          const totalSteps = Math.max(1, Math.round(numOctaves * params.stepsPerOctave));
+          const stepSize = (endFreq - sf) / totalSteps;
+          for (let i = 0; i <= totalSteps; i++) {
+            frequencies.push(sf + i * stepSize);
+          }
         }
 
-        const logF = Math.log10(freq);
-        const x = repStartX + t * (repEndX - repStartX);
-        const y = h - margin - (logF - logMin) / (logMax - logMin) * (h - margin * 2);
+        const dwellTime = params.dwellTime || 0.5;
+        const gapTime = params.gapTime || 0;
+        const stepDuration = dwellTime + gapTime;
+        const totalSteppedDuration = frequencies.length * stepDuration;
 
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+        for (let i = 0; i < frequencies.length; i++) {
+          const freq = frequencies[i];
+          const logF = Math.log10(Math.max(1, freq));
+          const y = h - margin - (logF - logMin) / (logMax - logMin) * (h - margin * 2);
+
+          const stepStartSec = i * stepDuration;
+          const stepEndSec = stepStartSec + dwellTime;
+          const x1 = repStartX + (stepStartSec / totalSteppedDuration) * (repEndX - repStartX);
+          const x2 = repStartX + (stepEndSec / totalSteppedDuration) * (repEndX - repStartX);
+
+          ctx.beginPath();
+          ctx.moveTo(x1, y);
+          ctx.lineTo(x2, y);
+          ctx.stroke();
+        }
+      } else {
+        // Continuous sweep trajectory
+        ctx.beginPath();
+        const steps = Math.min(Math.round(repEndX - repStartX), 500);
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          let freq;
+
+          if (type === 'exponential') {
+            freq = startFreq * Math.pow(endFreq / startFreq, t);
+          } else {
+            freq = startFreq + (endFreq - startFreq) * t;
+          }
+
+          const logF = Math.log10(Math.max(1, freq));
+          const x = repStartX + t * (repEndX - repStartX);
+          const y = h - margin - (logF - logMin) / (logMax - logMin) * (h - margin * 2);
+
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
       }
-      ctx.stroke();
     }
 
     // Time labels

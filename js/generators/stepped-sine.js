@@ -18,6 +18,9 @@
 export function generateSteppedSine({
   startFreq, endFreq, sampleRate, stepsPerOctave, dwellTime, gapTime, spacing, onProgress
 }) {
+  // Clamp startFreq to avoid log(0) issues
+  startFreq = Math.max(1, startFreq);
+
   // Calculate frequency steps
   const frequencies = [];
 
@@ -87,6 +90,7 @@ export function generateSteppedSine({
  * @returns {number} Duration in seconds
  */
 export function steppedSineDuration({ startFreq, endFreq, stepsPerOctave, dwellTime, gapTime, spacing }) {
+  startFreq = Math.max(1, startFreq);
   let numSteps;
   const numOctaves = Math.log2(endFreq / startFreq);
 

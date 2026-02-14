@@ -58,6 +58,7 @@ const els = {
   repetitionsGroup: $('repetitionsGroup'),
   interSweepSilenceGroup: $('interSweepSilenceGroup'),
   freqPlotWrapper: $('freqPlotWrapper'),
+  freqPreset0: $('freqPreset0'),
   mlsDuration: $('mlsDuration'),
 
   // Actions
@@ -162,6 +163,9 @@ function updateVisibility() {
 
   // Show seed input only for noise types
   els.seedGroup.hidden = !isNoise;
+
+  // 0 Hz preset only enabled for linear sweep
+  els.freqPreset0.disabled = type !== 'linear';
 
   // Show "1 octave" option only for ESS
   const oneOctOpt = els.fadeInDuration.querySelector('option[value="1octave"]');
@@ -298,15 +302,20 @@ function updateEstimatedSize() {
   }
 
   const bytes = estimateFileSize(params);
-  els.estimatedSize.textContent = formatFileSize(bytes);
 
-  if (bytes > 200 * 1024 * 1024) {
+  if (!isFinite(bytes) || bytes < 0) {
+    els.estimatedSize.textContent = '—';
+    els.sizeWarning.hidden = true;
+  } else if (bytes > 200 * 1024 * 1024) {
+    els.estimatedSize.textContent = formatFileSize(bytes);
     els.sizeWarning.textContent = 'Very large file — generation may be slow or fail on some devices';
     els.sizeWarning.hidden = false;
   } else if (bytes > 50 * 1024 * 1024) {
+    els.estimatedSize.textContent = formatFileSize(bytes);
     els.sizeWarning.textContent = 'Large file — generation may take a moment';
     els.sizeWarning.hidden = false;
   } else {
+    els.estimatedSize.textContent = formatFileSize(bytes);
     els.sizeWarning.hidden = true;
   }
 }
@@ -317,25 +326,44 @@ function updateFrequencyPlot() {
   if (!['ess', 'linear', 'stepped'].includes(type)) return;
 
   const reps = parseInt(els.repetitions.value) || 1;
-  const duration = parseFloat(els.duration.value) || 5;
+  let duration = parseFloat(els.duration.value) || 5;
   const interSilence = parseFloat(els.interSweepSilence.value) || 0;
+
+  const plotParams = {
+    startFreq: parseFloat(els.startFreq.value),
+    endFreq: parseFloat(els.endFreq.value),
+    type: type === 'ess' ? 'exponential' : type,
+    leadSilence: parseFloat(els.leadSilence.value) || 0,
+    trailSilence: parseFloat(els.trailSilence.value) || 0,
+    repetitions: reps,
+    interSweepSilence: interSilence,
+  };
+
+  if (type === 'stepped') {
+    plotParams.stepsPerOctave = parseInt(els.stepsPerOctave.value);
+    plotParams.dwellTime = parseFloat(els.dwellTime.value);
+    plotParams.gapTime = parseFloat(els.gapTime.value);
+    plotParams.steppedSpacing = els.steppedSpacing.value;
+    // Use computed duration for stepped sine (determined by step params, not UI field)
+    duration = steppedSineDuration({
+      startFreq: plotParams.startFreq,
+      endFreq: plotParams.endFreq,
+      stepsPerOctave: plotParams.stepsPerOctave,
+      dwellTime: plotParams.dwellTime,
+      gapTime: plotParams.gapTime,
+      spacing: plotParams.steppedSpacing,
+    });
+  }
 
   // Total sweep duration accounting for repetitions
   const totalSweepDuration = reps > 1
     ? duration * reps + (interSilence / 1000) * (reps - 1)
     : duration;
 
-  visualizer.drawFrequencyPlot({
-    startFreq: parseFloat(els.startFreq.value),
-    endFreq: parseFloat(els.endFreq.value),
-    duration: totalSweepDuration,
-    type: type === 'ess' ? 'exponential' : type,
-    leadSilence: parseFloat(els.leadSilence.value) || 0,
-    trailSilence: parseFloat(els.trailSilence.value) || 0,
-    repetitions: reps,
-    singleSweepDuration: duration,
-    interSweepSilence: interSilence,
-  });
+  plotParams.duration = totalSweepDuration;
+  plotParams.singleSweepDuration = duration;
+
+  visualizer.drawFrequencyPlot(plotParams);
 }
 
 // ─── Debounced Visualization Update ──────────────────────────────
@@ -432,6 +460,25 @@ function startGeneration() {
   // For MLS, set duration from order
   if (params.signalType === 'mls') {
     params.duration = mlsDuration(params.mlsOrder, params.sampleRate);
+  }
+
+  // For stepped sine, compute duration
+  if (params.signalType === 'stepped') {
+    params.duration = steppedSineDuration({
+      startFreq: params.startFreq,
+      endFreq: params.endFreq,
+      stepsPerOctave: params.stepsPerOctave,
+      dwellTime: params.dwellTime,
+      gapTime: params.gapTime,
+      spacing: params.steppedSpacing,
+    });
+  }
+
+  // Guard against invalid/infinite estimated size
+  const estimatedBytes = estimateFileSize(params);
+  if (!isFinite(estimatedBytes) || estimatedBytes <= 0) {
+    alert('Cannot generate: the current settings produce an invalid file size. Check your parameters.');
+    return;
   }
 
   // Validate
@@ -766,6 +813,26 @@ function buildPreviewChannels(params, previewRate) {
 
 function startPreview() {
   const params = getParams();
+
+  // For stepped sine, compute duration
+  if (params.signalType === 'stepped') {
+    params.duration = steppedSineDuration({
+      startFreq: params.startFreq,
+      endFreq: params.endFreq,
+      stepsPerOctave: params.stepsPerOctave,
+      dwellTime: params.dwellTime,
+      gapTime: params.gapTime,
+      spacing: params.steppedSpacing,
+    });
+  }
+
+  // Guard against invalid/infinite estimated size
+  const estimatedBytes = estimateFileSize(params);
+  if (!isFinite(estimatedBytes) || estimatedBytes <= 0) {
+    alert('Cannot preview: the current settings produce an invalid signal. Check your parameters.');
+    return;
+  }
+
   const previewRate = Math.min(params.sampleRate, previewPlayer.nativeSampleRate || 48000);
   const channelMode = params.channelMode;
   const isStereo = channelMode !== 'mono';
