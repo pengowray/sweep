@@ -260,6 +260,9 @@ function updateAdvancedVisibility(type, isESS, isSweep, isNoise, isMLS, isSteppe
   const hasAWeight = isSweep || isStepped;
   els.aWeightGroup.style.opacity = hasAWeight ? '1' : '0.4';
   els.aWeightGroup.style.pointerEvents = hasAWeight ? '' : 'none';
+  if (!hasAWeight && els.aWeighting.checked) {
+    els.aWeighting.checked = false;
+  }
 }
 
 // ─── Preview Quality Note ───────────────────────────────────────

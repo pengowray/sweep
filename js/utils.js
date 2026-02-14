@@ -238,18 +238,18 @@ export function applyAWeighting(samples, params) {
     return;
   }
 
-  // For ESS and linear sweeps, compute instantaneous frequency per sample
+  // For ESS and linear sweeps, compute instantaneous frequency per sample.
+  // Two-pass approach: first apply the raw inverse A-weight envelope,
+  // then normalize so the peak amplitude equals the original peak.
+  // This correctly accounts for fades that have already been applied.
   const lnRatio = signalType === 'ess' ? Math.log(endFreq / startFreq) : 0;
   const chirpRate = signalType === 'linear' ? (endFreq - startFreq) / duration : 0;
 
-  // Find the normalization factor: max inverse gain across the frequency range.
-  // For both ESS and linear, the minimum A-weight dB (max inverse gain) occurs
-  // at whichever endpoint has the lower A-weight value.
-  const aStart = aWeightDB(startFreq);
-  const aEnd = aWeightDB(endFreq);
-  const minAWeight = Math.min(aStart, aEnd);
-  const maxInverseGain = Math.pow(10, -minAWeight / 20);
+  // Use 1 kHz (A-weight ≈ 0 dB) as reference so inverse gain ≈ 1.0 at 1 kHz.
+  // This keeps the mid-range close to the original level and boosts/cuts elsewhere.
+  const refGain = Math.pow(10, -aWeightDB(1000) / 20); // ≈ 1.0
 
+  // Pass 1: apply inverse A-weight envelope (relative to 1 kHz reference)
   for (let i = 0; i < N; i++) {
     const t = i / sampleRate;
     let freq;
@@ -259,9 +259,21 @@ export function applyAWeighting(samples, params) {
       freq = startFreq + chirpRate * t;
     }
 
-    const aDb = aWeightDB(freq);
-    const inverseGain = Math.pow(10, -aDb / 20);
-    samples[i] *= inverseGain / maxInverseGain;
+    const inverseGain = Math.pow(10, -aWeightDB(freq) / 20) / refGain;
+    samples[i] *= inverseGain;
+  }
+
+  // Pass 2: find peak amplitude and normalize so it doesn't exceed 1.0
+  let peak = 0;
+  for (let i = 0; i < N; i++) {
+    const abs = Math.abs(samples[i]);
+    if (abs > peak) peak = abs;
+  }
+  if (peak > 1.0) {
+    const scale = 1.0 / peak;
+    for (let i = 0; i < N; i++) {
+      samples[i] *= scale;
+    }
   }
 }
 
@@ -291,26 +303,37 @@ function applyAWeightStepped(samples, params) {
     }
   }
 
-  // Find normalization: max inverse gain across all step frequencies
-  let maxInverseGain = 0;
-  const stepGains = frequencies.map(freq => {
-    const g = Math.pow(10, -aWeightDB(freq) / 20);
-    if (g > maxInverseGain) maxInverseGain = g;
-    return g;
-  });
+  // Compute inverse A-weight gain per step (referenced to 1 kHz)
+  const refGain = Math.pow(10, -aWeightDB(1000) / 20);
+  const stepGains = frequencies.map(freq =>
+    Math.pow(10, -aWeightDB(freq) / 20) / refGain
+  );
 
   const dwellSamples = Math.round(dwellTime * sampleRate);
   const gapSamples = Math.round(gapTime * sampleRate);
   const stepLen = dwellSamples + gapSamples;
 
+  // Pass 1: apply per-step gains
   for (let step = 0; step < frequencies.length; step++) {
-    const gain = stepGains[step] / maxInverseGain;
+    const gain = stepGains[step];
     const offset = step * stepLen;
     const end = Math.min(offset + dwellSamples, samples.length);
     for (let i = offset; i < end; i++) {
       samples[i] *= gain;
     }
-    // Gap samples are already zero, no need to scale
+  }
+
+  // Pass 2: normalize so peak doesn't exceed 1.0
+  let peak = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const abs = Math.abs(samples[i]);
+    if (abs > peak) peak = abs;
+  }
+  if (peak > 1.0) {
+    const scale = 1.0 / peak;
+    for (let i = 0; i < samples.length; i++) {
+      samples[i] *= scale;
+    }
   }
 }
 
