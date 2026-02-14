@@ -245,13 +245,13 @@ export function applyAWeighting(samples, params) {
   // then normalize so the peak amplitude equals the original peak.
   // This correctly accounts for fades that have already been applied.
   //
-  // Frequency is clamped to [200, 20000] Hz for the A-weight calculation.
-  // Floor at 200 Hz avoids extreme sub-bass boost; ceiling at 20 kHz prevents
+  // Frequency is clamped to [110, 20000] Hz for the A-weight calculation.
+  // Floor at 110 Hz avoids extreme sub-bass boost; ceiling at 20 kHz prevents
   // ultrasonic runaway. This gives ~12 dB of dynamic range — a moderate,
   // practical compensation across the core audible band.
   const lnRatio = signalType === 'ess' ? Math.log(endFreq / startFreq) : 0;
   const chirpRate = signalType === 'linear' ? (endFreq - startFreq) / duration : 0;
-  const A_WEIGHT_FLOOR_HZ = 200;
+  const A_WEIGHT_FLOOR_HZ = 110 ; // or 200?
   const A_WEIGHT_CEIL_HZ = 20000;
 
   // Use 1 kHz (A-weight ≈ 0 dB) as reference so inverse gain ≈ 1.0 at 1 kHz.
