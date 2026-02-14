@@ -362,26 +362,9 @@ export class Visualizer {
       const repStartX = (repStartSec / totalDuration) * w;
       const repEndX = (repEndSec / totalDuration) * w;
 
-      if (type === 'stepped' && params.stepsPerOctave) {
-        // Draw discrete horizontal steps
-        const frequencies = [];
-        const sf = Math.max(1, startFreq);
-        if (params.steppedSpacing === 'logarithmic') {
-          const numOctaves = Math.log2(endFreq / sf);
-          const totalSteps = Math.round(numOctaves * params.stepsPerOctave);
-          for (let i = 0; i <= totalSteps; i++) {
-            const freq = sf * Math.pow(2, i / params.stepsPerOctave);
-            if (freq <= endFreq * 1.001) frequencies.push(freq);
-          }
-        } else {
-          const numOctaves = Math.log2(endFreq / sf);
-          const totalSteps = Math.max(1, Math.round(numOctaves * params.stepsPerOctave));
-          const stepSize = (endFreq - sf) / totalSteps;
-          for (let i = 0; i <= totalSteps; i++) {
-            frequencies.push(sf + i * stepSize);
-          }
-        }
-
+      if (type === 'stepped' && params.steppedFrequencies && params.steppedFrequencies.length) {
+        // Draw discrete horizontal steps (frequency array precomputed by caller)
+        const frequencies = params.steppedFrequencies;
         const dwellTime = params.dwellTime || 0.5;
         const gapTime = params.gapTime || 0;
         const stepDuration = dwellTime + gapTime;

@@ -1,27 +1,17 @@
 // js/generators/stepped-sine.js — Discrete frequency-stepped tone generation
 
 /**
- * Generate a stepped sine signal: discrete frequency tones held for a
- * configurable duration, with optional silence gaps between steps.
+ * Compute the list of frequencies for a stepped sine signal.
+ * Single source of truth — used by the generator, duration calc, A-weighting, and visualizer.
  *
- * @param {object} params
- * @param {number} params.startFreq
- * @param {number} params.endFreq
- * @param {number} params.sampleRate
- * @param {number} params.stepsPerOctave - e.g. 3, 6, 12, 24
- * @param {number} params.dwellTime - seconds per step
- * @param {number} params.gapTime - silence between steps (seconds)
- * @param {string} params.spacing - "logarithmic" or "linear"
- * @param {function} [params.onProgress]
- * @returns {Float64Array}
+ * @param {number} startFreq
+ * @param {number} endFreq
+ * @param {number} stepsPerOctave
+ * @param {string} spacing - "logarithmic" or "linear"
+ * @returns {number[]}
  */
-export function generateSteppedSine({
-  startFreq, endFreq, sampleRate, stepsPerOctave, dwellTime, gapTime, spacing, onProgress
-}) {
-  // Clamp startFreq to avoid log(0) issues
+export function computeSteppedFrequencies(startFreq, endFreq, stepsPerOctave, spacing) {
   startFreq = Math.max(1, startFreq);
-
-  // Calculate frequency steps
   const frequencies = [];
 
   if (spacing === 'logarithmic') {
@@ -40,6 +30,29 @@ export function generateSteppedSine({
       frequencies.push(startFreq + i * stepSize);
     }
   }
+
+  return frequencies;
+}
+
+/**
+ * Generate a stepped sine signal: discrete frequency tones held for a
+ * configurable duration, with optional silence gaps between steps.
+ *
+ * @param {object} params
+ * @param {number} params.startFreq
+ * @param {number} params.endFreq
+ * @param {number} params.sampleRate
+ * @param {number} params.stepsPerOctave - e.g. 3, 6, 12, 24
+ * @param {number} params.dwellTime - seconds per step
+ * @param {number} params.gapTime - silence between steps (seconds)
+ * @param {string} params.spacing - "logarithmic" or "linear"
+ * @param {function} [params.onProgress]
+ * @returns {Float64Array}
+ */
+export function generateSteppedSine({
+  startFreq, endFreq, sampleRate, stepsPerOctave, dwellTime, gapTime, spacing, onProgress
+}) {
+  const frequencies = computeSteppedFrequencies(startFreq, endFreq, stepsPerOctave, spacing);
 
   const dwellSamples = Math.round(dwellTime * sampleRate);
   const gapSamples = Math.round(gapTime * sampleRate);
@@ -90,15 +103,6 @@ export function generateSteppedSine({
  * @returns {number} Duration in seconds
  */
 export function steppedSineDuration({ startFreq, endFreq, stepsPerOctave, dwellTime, gapTime, spacing }) {
-  startFreq = Math.max(1, startFreq);
-  let numSteps;
-  const numOctaves = Math.log2(endFreq / startFreq);
-
-  if (spacing === 'logarithmic') {
-    numSteps = Math.round(numOctaves * stepsPerOctave) + 1;
-  } else {
-    numSteps = Math.max(1, Math.round(numOctaves * stepsPerOctave)) + 1;
-  }
-
+  const numSteps = computeSteppedFrequencies(startFreq, endFreq, stepsPerOctave, spacing).length;
   return numSteps * (dwellTime + gapTime);
 }

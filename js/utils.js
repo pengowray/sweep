@@ -1,6 +1,8 @@
 // js/utils.js — Shared math utilities for signal generation
 // Pure functions: fade windows, dBFS conversion, gain, silence padding, repetition
 
+import { computeSteppedFrequencies } from './generators/stepped-sine.js';
+
 /**
  * Convert dBFS to linear amplitude.
  * @param {number} dBFS - e.g. -3
@@ -292,23 +294,7 @@ function applyAWeightStepped(samples, params) {
   const { startFreq, endFreq, sampleRate, stepsPerOctave, dwellTime, gapTime } = params;
   const spacing = params.steppedSpacing || 'logarithmic';
 
-  // Reconstruct frequency list (same logic as generateSteppedSine)
-  const frequencies = [];
-  if (spacing === 'logarithmic') {
-    const numOctaves = Math.log2(endFreq / startFreq);
-    const totalSteps = Math.round(numOctaves * stepsPerOctave);
-    for (let i = 0; i <= totalSteps; i++) {
-      const freq = startFreq * Math.pow(2, i / stepsPerOctave);
-      if (freq <= endFreq * 1.001) frequencies.push(freq);
-    }
-  } else {
-    const numOctaves = Math.log2(endFreq / startFreq);
-    const totalSteps = Math.max(1, Math.round(numOctaves * stepsPerOctave));
-    const stepSize = (endFreq - startFreq) / totalSteps;
-    for (let i = 0; i <= totalSteps; i++) {
-      frequencies.push(startFreq + i * stepSize);
-    }
-  }
+  const frequencies = computeSteppedFrequencies(startFreq, endFreq, stepsPerOctave, spacing);
 
   // Compute inverse A-weight gain per step (referenced to 1 kHz, clamped to [200, 20000] Hz)
   const A_WEIGHT_FLOOR_HZ = 200;

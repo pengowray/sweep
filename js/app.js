@@ -7,7 +7,7 @@ import { estimateFileSize, formatFileSize, dBFSToLinear, essOneOctaveFadeSamples
 import { generateExponentialSweep, generateLinearSweep } from './generators/sweep.js';
 import { generateWhiteNoise, generatePinkNoise } from './generators/noise.js';
 import { generateMLS, mlsDuration } from './generators/mls.js';
-import { generateSteppedSine, steppedSineDuration } from './generators/stepped-sine.js';
+import { generateSteppedSine, steppedSineDuration, computeSteppedFrequencies } from './generators/stepped-sine.js';
 import { applyFades, applyGain, addSilence, repeatWithSilence, applyAWeighting } from './utils.js';
 
 // ─── DOM References ───────────────────────────────────────────────
@@ -340,19 +340,15 @@ function updateFrequencyPlot() {
   };
 
   if (type === 'stepped') {
-    plotParams.stepsPerOctave = parseInt(els.stepsPerOctave.value);
     plotParams.dwellTime = parseFloat(els.dwellTime.value);
     plotParams.gapTime = parseFloat(els.gapTime.value);
-    plotParams.steppedSpacing = els.steppedSpacing.value;
-    // Use computed duration for stepped sine (determined by step params, not UI field)
-    duration = steppedSineDuration({
-      startFreq: plotParams.startFreq,
-      endFreq: plotParams.endFreq,
-      stepsPerOctave: plotParams.stepsPerOctave,
-      dwellTime: plotParams.dwellTime,
-      gapTime: plotParams.gapTime,
-      spacing: plotParams.steppedSpacing,
-    });
+    plotParams.steppedFrequencies = computeSteppedFrequencies(
+      plotParams.startFreq, plotParams.endFreq,
+      parseInt(els.stepsPerOctave.value),
+      els.steppedSpacing.value
+    );
+    // Use computed duration (determined by step params, not UI duration field)
+    duration = plotParams.steppedFrequencies.length * (plotParams.dwellTime + plotParams.gapTime);
   }
 
   // Total sweep duration accounting for repetitions
