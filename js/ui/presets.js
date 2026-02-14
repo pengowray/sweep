@@ -141,8 +141,8 @@ export const SIGNAL_PRESETS = [
   },
   {
     id: 'hires-archival',
-    name: 'Hi-Res Archival',
-    description: 'Maximum quality capture for archival measurement',
+    name: 'Comprehensive',
+    description: 'Long sweep with full bandwidth and inverse filter for comprehensive measurement',
     signalType: 'ess',
     startFreq: 5,
     endFreq: 'nyquist',
@@ -336,12 +336,19 @@ export function applySignalPreset(preset, elements, currentSampleRate) {
     steppedSpacing: preset.steppedSpacing,
   };
 
-  // Resolve 'nyquist' endFreq
+  // Resolve 'nyquist' endFreq and sync fullBandwidth checkbox
   let endFreq = preset.endFreq;
-  if (endFreq === 'nyquist') {
+  const isNyquist = endFreq === 'nyquist';
+  if (isNyquist) {
     endFreq = Math.floor(currentSampleRate / 2);
   }
   fieldMap.endFreq = endFreq;
+
+  // Set fullBandwidth checkbox if present
+  if (elements.fullBandwidth && preset.endFreq !== undefined) {
+    elements.fullBandwidth.checked = isNyquist;
+    elements.fullBandwidth.dispatchEvent(new Event('change', { bubbles: true }));
+  }
 
   for (const [key, value] of Object.entries(fieldMap)) {
     if (value === undefined || !elements[key]) continue;

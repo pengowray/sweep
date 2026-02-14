@@ -18,6 +18,7 @@ const els = {
   sampleRate: $('sampleRate'),
   startFreq: $('startFreq'),
   endFreq: $('endFreq'),
+  fullBandwidth: $('fullBandwidth'),
   duration: $('duration'),
   channelMode: $('channelMode'),
   outputLevel: $('outputLevel'),
@@ -185,6 +186,19 @@ function updateVisibility() {
 
   updateEstimatedSize();
   updateFrequencyPlot();
+}
+
+// ─── Full Bandwidth ─────────────────────────────────────────────
+function applyFullBandwidth() {
+  if (els.fullBandwidth.checked) {
+    const sr = parseInt(els.sampleRate.value);
+    els.endFreq.value = Math.floor(sr / 2);
+    els.endFreq.disabled = true;
+    els.endFreq.dispatchEvent(new Event('input', { bubbles: true }));
+    els.endFreq.dispatchEvent(new Event('change', { bubbles: true }));
+  } else {
+    els.endFreq.disabled = false;
+  }
 }
 
 // ─── Channel Options Filtering ──────────────────────────────────
@@ -681,6 +695,14 @@ function buildPreviewChannels(params, previewRate) {
     return { left: mono, right: mono, isStereo: false };
   }
 
+  if (channelMode === 'stereo-left') {
+    return { left: mono, right: new Float64Array(mono.length), isStereo: true };
+  }
+
+  if (channelMode === 'stereo-right') {
+    return { left: new Float64Array(mono.length), right: mono, isStereo: true };
+  }
+
   if (channelMode === 'stereo-sync') {
     const right = new Float64Array(mono.length);
     const leadSamp = Math.round(params.leadSilence / 1000 * previewRate);
@@ -924,6 +946,20 @@ function bindEvents() {
     els.outputLevel.dispatchEvent(new Event('change', { bubbles: true }));
   });
 
+  // Start frequency quick presets
+  document.querySelectorAll('.freq-preset-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      els.startFreq.value = btn.dataset.freq;
+      els.startFreq.dispatchEvent(new Event('input', { bubbles: true }));
+      els.startFreq.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  });
+
+  // Full bandwidth checkbox
+  els.fullBandwidth.addEventListener('change', () => {
+    applyFullBandwidth();
+  });
+
   // Randomize seed button
   els.randomizeSeedBtn.addEventListener('click', () => {
     els.noiseSeed.value = Math.floor(Math.random() * 4294967296);
@@ -934,6 +970,10 @@ function bindEvents() {
   els.mlsOrder.addEventListener('change', updateVisibility);
   els.sampleRate.addEventListener('change', () => {
     updateVisibility();
+    // Recalculate full bandwidth if checked
+    if (els.fullBandwidth.checked) {
+      applyFullBandwidth();
+    }
     // Clear format preset highlight when manually changing sample rate
     if (activeFormatPresetBtn) {
       activeFormatPresetBtn.classList.remove('active');

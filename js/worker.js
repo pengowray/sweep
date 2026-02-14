@@ -149,7 +149,13 @@ self.onmessage = function (event) {
     const numChannels = channelMode === 'mono' ? 1 : 2;
     let channels = null; // pre-built channel arrays for new modes
 
-    if (channelMode === 'stereo-sync') {
+    if (channelMode === 'stereo-left') {
+      channels = [samples, new Float64Array(samples.length)];
+
+    } else if (channelMode === 'stereo-right') {
+      channels = [new Float64Array(samples.length), samples];
+
+    } else if (channelMode === 'stereo-sync') {
       // L = signal, R = sync impulse at sweep start
       const syncChannel = new Float64Array(samples.length);
       syncChannel[leadSamples] = linearGain;

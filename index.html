@@ -43,6 +43,8 @@
           <select id="channelMode">
             <option value="mono">Mono</option>
             <option value="stereo-identical">Stereo (identical L+R)</option>
+            <option value="stereo-left">Stereo (left only)</option>
+            <option value="stereo-right">Stereo (right only)</option>
             <option value="stereo-independent" data-for="noise">Stereo (independent L/R)</option>
             <option value="stereo-sync" data-for="sweep">Stereo (L=signal, R=sync)</option>
             <option value="stereo-alternate" data-for="sweep">Stereo Alternate (L→R)</option>
@@ -52,11 +54,22 @@
 
         <div class="control-group" id="startFreqGroup">
           <label for="startFreq">Start Frequency (Hz)</label>
+          <div class="freq-presets">
+            <button type="button" class="freq-preset-btn" data-freq="1">1</button>
+            <button type="button" class="freq-preset-btn" data-freq="5">5</button>
+            <button type="button" class="freq-preset-btn" data-freq="10">10</button>
+            <button type="button" class="freq-preset-btn" data-freq="20">20</button>
+            <button type="button" class="freq-preset-btn" data-freq="22">22</button>
+          </div>
           <input type="number" id="startFreq" value="20" min="1" max="96000" step="any">
         </div>
 
         <div class="control-group" id="endFreqGroup">
           <label for="endFreq">End Frequency (Hz)</label>
+          <label class="checkbox-label checkbox-label-sm">
+            <input type="checkbox" id="fullBandwidth">
+            Full bandwidth
+          </label>
           <input type="number" id="endFreq" value="20000" min="1" max="96000" step="any">
         </div>
 
@@ -330,7 +343,7 @@
   </main>
 
   <footer class="footer">
-    <p>Sine Sweep Generator v1.0.7 by Pengo Wray &mdash; Generate high-fidelity test signals to capture impulse responses. View the source on <a href="https://github.com/pengowray/sweep" target="_blank" rel="noopener noreferrer">GitHub</a>.</p>
+    <p>Sine Sweep Generator v1.0.8 by Pengo Wray &mdash; Generate high-fidelity test signals to capture impulse responses. View the source on <a href="https://github.com/pengowray/sweep" target="_blank" rel="noopener noreferrer">GitHub</a>.</p>
   </footer>
 
   <script type="module" src="js/app.js"></script>
