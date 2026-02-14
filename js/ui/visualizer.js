@@ -590,7 +590,7 @@ export class Visualizer {
         wCtx.stroke();
         wCtx.globalAlpha = 1;
 
-        // Draw frequency cursor with fading alpha
+        // Draw frequency cursor + label with fading alpha
         if (this._lastFreqParams) {
           const fCtx = this._freqCanvas.getContext('2d');
           const fDims = this._dims(this._freqCanvas);
@@ -602,6 +602,22 @@ export class Visualizer {
           fCtx.moveTo(fx, 0);
           fCtx.lineTo(fx, fDims.h);
           fCtx.stroke();
+
+          // Fade the frequency label too
+          const freq = this._getFrequencyAtTime(time, this._lastFreqParams);
+          if (freq != null) {
+            const label = freq >= 1000 ? (freq / 1000).toFixed(1) + ' kHz' : Math.round(freq) + ' Hz';
+            fCtx.font = '10px sans-serif';
+            const textW = fCtx.measureText(label).width;
+            const labelX = (fx + textW + 8 > fDims.w) ? fx - textW - 6 : fx + 4;
+            fCtx.fillStyle = this._bgColor;
+            fCtx.globalAlpha = alpha * 0.8;
+            fCtx.fillRect(labelX - 2, 2, textW + 4, 14);
+            fCtx.globalAlpha = alpha;
+            fCtx.fillStyle = this._cursorColor;
+            fCtx.fillText(label, labelX, 13);
+          }
+
           fCtx.globalAlpha = 1;
         }
 
