@@ -270,12 +270,14 @@
             <p class="hint">Downloads a second WAV for deconvolution</p>
           </div>
 
-          <div class="control-group" id="aWeightGroup">
-            <label class="checkbox-label">
-              <input type="checkbox" id="aWeighting">
-              Flatten perceptual loudness (Inverse A-weighting)
-            </label>
-            <p class="hint">Reduces psychoacoustic peak (110 Hz–20 kHz)</p>
+          <div class="control-group" id="eqCurveGroup">
+            <label for="eqCurve">EQ</label>
+            <select id="eqCurve">
+              <option value="none">None</option>
+              <option value="a-weight">Flatten perceptual loudness (A-weighting)</option>
+              <option value="inverse-riaa">Inverse RIAA</option>
+            </select>
+            <p class="hint" id="eqCurveHint"></p>
           </div>
 
           <div class="control-group" id="ditherGroup">

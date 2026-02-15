@@ -215,49 +215,49 @@ export function aWeightDB(f) {
 }
 
 /**
- * Apply inverse A-weighting amplitude envelope to sweep samples in-place.
- * Shapes the sweep so it sounds perceptually even across frequencies.
- * The envelope is normalized so the maximum amplitude remains 1.0.
+ * RIAA playback equalization curve in dB for a given frequency.
+ * Models the transfer function applied by a standard phono preamp.
+ * Time constants: T1=3180µs (50 Hz), T2=318µs (500 Hz), T3=75µs (2.1 kHz).
+ * Returns ~+19.3 dB at 20 Hz and ~-19.6 dB at 20 kHz, relative to 1 kHz.
+ * @param {number} f - Frequency in Hz (must be > 0)
+ * @returns {number} RIAA playback gain in dB (raw, not normalized)
+ */
+export function riaaPlaybackDB(f) {
+  const T1 = 3180e-6, T2 = 318e-6, T3 = 75e-6;
+  const w = 2 * Math.PI * f;
+  const gainSq = (1 + (w * T2) ** 2) / ((1 + (w * T1) ** 2) * (1 + (w * T3) ** 2));
+  return 10 * Math.log10(gainSq);
+}
+
+/**
+ * Apply an EQ amplitude envelope to sweep samples in-place, using the inverse
+ * of the supplied dB curve. Shapes the signal so that after passing through a
+ * device with the given EQ response, the output is flat.
+ *
+ * Two-pass: apply inverse-EQ gain per sample, then normalize peak to ≤ 1.0.
  *
  * @param {Float64Array} samples
  * @param {object} params
- * @param {number} params.startFreq
- * @param {number} params.endFreq
- * @param {number} params.duration
- * @param {number} params.sampleRate
- * @param {string} params.signalType - 'ess', 'linear', or 'stepped'
- * @param {number} [params.stepsPerOctave]
- * @param {number} [params.dwellTime]
- * @param {number} [params.gapTime]
- * @param {string} [params.steppedSpacing]
+ * @param {Function} eqDbFn - Function (f: Hz) => dB of the target EQ curve
+ * @param {number} floorHz - Lower frequency clamp for the EQ calculation
+ * @param {number} ceilHz - Upper frequency clamp for the EQ calculation
  */
-export function applyAWeighting(samples, params) {
+function applyEQCurve(samples, params, eqDbFn, floorHz, ceilHz) {
   const { startFreq, endFreq, duration, sampleRate, signalType } = params;
   const N = samples.length;
 
   if (signalType === 'stepped') {
-    applyAWeightStepped(samples, params);
+    applyEQCurveStepped(samples, params, eqDbFn, floorHz, ceilHz);
     return;
   }
 
-  // For ESS and linear sweeps, compute instantaneous frequency per sample.
-  // Two-pass approach: first apply the raw inverse A-weight envelope,
-  // then normalize so the peak amplitude equals the original peak.
-  // This correctly accounts for fades that have already been applied.
-  //
-  // Frequency is clamped to [110, 20000] Hz for the A-weight calculation.
-  // Floor at 110 Hz avoids extreme sub-bass boost; ceiling at 20 kHz prevents
-  // ultrasonic runaway. This gives ~12 dB of dynamic range — a moderate,
-  // practical compensation across the core audible band.
   const lnRatio = signalType === 'ess' ? Math.log(endFreq / startFreq) : 0;
   const chirpRate = signalType === 'linear' ? (endFreq - startFreq) / duration : 0;
-  const A_WEIGHT_FLOOR_HZ = 110 ; // or 200?
-  const A_WEIGHT_CEIL_HZ = 20000;
 
-  // Use 1 kHz (A-weight ≈ 0 dB) as reference so inverse gain ≈ 1.0 at 1 kHz.
-  const refGain = Math.pow(10, -aWeightDB(1000) / 20); // ≈ 1.0
+  // Normalize so inverse gain = 1.0 at 1 kHz
+  const refGain = Math.pow(10, -eqDbFn(1000) / 20);
 
-  // Pass 1: apply inverse A-weight envelope (relative to 1 kHz reference)
+  // Pass 1: apply inverse EQ envelope
   for (let i = 0; i < N; i++) {
     const t = i / sampleRate;
     let freq;
@@ -266,13 +266,12 @@ export function applyAWeighting(samples, params) {
     } else {
       freq = startFreq + chirpRate * t;
     }
-
-    const clampedFreq = Math.min(Math.max(freq, A_WEIGHT_FLOOR_HZ), A_WEIGHT_CEIL_HZ);
-    const inverseGain = Math.pow(10, -aWeightDB(clampedFreq) / 20) / refGain;
+    const clampedFreq = Math.min(Math.max(freq, floorHz), ceilHz);
+    const inverseGain = Math.pow(10, -eqDbFn(clampedFreq) / 20) / refGain;
     samples[i] *= inverseGain;
   }
 
-  // Pass 2: find peak amplitude and normalize so it doesn't exceed 1.0
+  // Pass 2: normalize so peak doesn't exceed 1.0
   let peak = 0;
   for (let i = 0; i < N; i++) {
     const abs = Math.abs(samples[i]);
@@ -287,21 +286,18 @@ export function applyAWeighting(samples, params) {
 }
 
 /**
- * Apply inverse A-weighting to stepped sine samples.
+ * Apply EQ curve to stepped sine samples.
  * Each step has a constant frequency, so gain is constant per step.
  */
-function applyAWeightStepped(samples, params) {
+function applyEQCurveStepped(samples, params, eqDbFn, floorHz, ceilHz) {
   const { startFreq, endFreq, sampleRate, stepsPerOctave, dwellTime, gapTime } = params;
   const spacing = params.steppedSpacing || 'logarithmic';
 
   const frequencies = computeSteppedFrequencies(startFreq, endFreq, stepsPerOctave, spacing);
 
-  // Compute inverse A-weight gain per step (referenced to 1 kHz, clamped to [200, 20000] Hz)
-  const A_WEIGHT_FLOOR_HZ = 200;
-  const A_WEIGHT_CEIL_HZ = 20000;
-  const refGain = Math.pow(10, -aWeightDB(1000) / 20);
+  const refGain = Math.pow(10, -eqDbFn(1000) / 20);
   const stepGains = frequencies.map(freq =>
-    Math.pow(10, -aWeightDB(Math.min(Math.max(freq, A_WEIGHT_FLOOR_HZ), A_WEIGHT_CEIL_HZ)) / 20) / refGain
+    Math.pow(10, -eqDbFn(Math.min(Math.max(freq, floorHz), ceilHz)) / 20) / refGain
   );
 
   const dwellSamples = Math.round(dwellTime * sampleRate);
@@ -330,6 +326,38 @@ function applyAWeightStepped(samples, params) {
       samples[i] *= scale;
     }
   }
+}
+
+/**
+ * Apply the selected EQ curve to sweep samples in-place.
+ * Dispatches to the appropriate curve based on params.eqCurve.
+ * No-op for noise/MLS or when eqCurve is 'none'.
+ *
+ * @param {Float64Array} samples
+ * @param {object} params - Must include eqCurve and signalType
+ */
+export function applyEQ(samples, params) {
+  if (!params.eqCurve || params.eqCurve === 'none') return;
+  if (!['ess', 'linear', 'stepped'].includes(params.signalType)) return;
+  switch (params.eqCurve) {
+    case 'a-weight':
+      // Floor at 110 Hz avoids extreme sub-bass boost; ~12 dB of dynamic range
+      applyEQCurve(samples, params, aWeightDB, 110, 20000);
+      break;
+    case 'inverse-riaa':
+      // Full 20 Hz–20 kHz range; signal will be bass-cut and treble-boosted
+      // so output through a phono preamp (RIAA playback) measures flat
+      applyEQCurve(samples, params, riaaPlaybackDB, 20, 20000);
+      break;
+  }
+}
+
+/**
+ * Apply inverse A-weighting amplitude envelope to sweep samples in-place.
+ * @deprecated Use applyEQ(samples, { ...params, eqCurve: 'a-weight' }) instead.
+ */
+export function applyAWeighting(samples, params) {
+  applyEQCurve(samples, params, aWeightDB, 110, 20000);
 }
 
 /**

@@ -8,7 +8,7 @@ import { encodeWAV, generateFilename, buildBwfDescription } from './audio/wav-en
 import {
   applyFades, applyGain, addSilence, repeatWithSilence,
   dBFSToLinear, essOneOctaveFadeSamples, decimateForVisualization,
-  applyAWeighting, applyDither
+  applyEQ, applyDither
 } from './utils.js';
 
 self.onmessage = function (event) {
@@ -113,9 +113,9 @@ self.onmessage = function (event) {
 
     postProgress(0.45);
 
-    // Phase 2b: A-weighted loudness compensation
-    if (params.aWeighting && ['ess', 'linear', 'stepped'].includes(params.signalType)) {
-      applyAWeighting(samples, params);
+    // Phase 2b: EQ compensation
+    if (params.eqCurve && params.eqCurve !== 'none') {
+      applyEQ(samples, params);
     }
 
     // Phase 3: Apply output level gain

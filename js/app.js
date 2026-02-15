@@ -8,7 +8,7 @@ import { generateExponentialSweep, generateLinearSweep } from './generators/swee
 import { generateWhiteNoise, generatePinkNoise } from './generators/noise.js';
 import { generateMLS, mlsDuration } from './generators/mls.js';
 import { generateSteppedSine, steppedSineDuration, computeSteppedFrequencies } from './generators/stepped-sine.js';
-import { applyFades, applyGain, addSilence, repeatWithSilence, applyAWeighting } from './utils.js';
+import { applyFades, applyGain, addSilence, repeatWithSilence, applyEQ } from './utils.js';
 
 // ─── DOM References ───────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -33,7 +33,8 @@ const els = {
   repetitions: $('repetitions'),
   interSweepSilence: $('interSweepSilence'),
   generateInverse: $('generateInverse'),
-  aWeighting: $('aWeighting'),
+  eqCurve: $('eqCurve'),
+  eqCurveHint: $('eqCurveHint'),
   dither: $('dither'),
   ditherGroup: $('ditherGroup'),
   mlsOrder: $('mlsOrder'),
@@ -52,7 +53,7 @@ const els = {
   mlsControls: $('mlsControls'),
   steppedControls: $('steppedControls'),
   inverseFilterGroup: $('inverseFilterGroup'),
-  aWeightGroup: $('aWeightGroup'),
+  eqCurveGroup: $('eqCurveGroup'),
   fadeInDurationGroup: $('fadeInDurationGroup'),
   fadeInTypeGroup: $('fadeInTypeGroup'),
   fadeOutTypeGroup: $('fadeOutTypeGroup'),
@@ -133,7 +134,7 @@ function getParams() {
     repetitions: parseInt(els.repetitions.value) || 1,
     interSweepSilence: parseFloat(els.interSweepSilence.value) || 0,
     generateInverse: els.generateInverse.checked,
-    aWeighting: els.aWeighting.checked,
+    eqCurve: els.eqCurve.value,
     dither: els.dither.value,
     mlsOrder: parseInt(els.mlsOrder.value),
     stepsPerOctave: parseInt(els.stepsPerOctave.value),
@@ -279,13 +280,11 @@ function updateAdvancedVisibility(type, isESS, isSweep, isNoise, isMLS, isSteppe
   els.inverseFilterGroup.style.opacity = isESS ? '1' : '0.4';
   els.inverseFilterGroup.style.pointerEvents = isESS ? '' : 'none';
 
-  // A-weighting: sweep types only (ESS, linear, stepped)
-  const hasAWeight = isSweep || isStepped;
-  els.aWeightGroup.style.opacity = hasAWeight ? '1' : '0.4';
-  els.aWeightGroup.style.pointerEvents = hasAWeight ? '' : 'none';
-  if (!hasAWeight && els.aWeighting.checked) {
-    els.aWeighting.checked = false;
-  }
+  // EQ: sweep types only (ESS, linear, stepped)
+  const hasEQ = isSweep || isStepped;
+  els.eqCurveGroup.style.opacity = hasEQ ? '1' : '0.4';
+  els.eqCurveGroup.style.pointerEvents = hasEQ ? '' : 'none';
+  if (!hasEQ) els.eqCurve.value = 'none';
 }
 
 // ─── Dither Default by Bit Depth ────────────────────────────────
@@ -743,9 +742,9 @@ function generatePreviewSamples(params, previewRate) {
   const fadeOutSamples = Math.round(parseFloat(params.fadeOutDuration || 0) * previewRate);
   applyFades(samples, params.fadeInType, fadeInSamples, params.fadeOutType, fadeOutSamples);
 
-  // A-weighted loudness compensation
-  if (params.aWeighting && ['ess', 'linear', 'stepped'].includes(params.signalType)) {
-    applyAWeighting(samples, { ...params, sampleRate: previewRate });
+  // EQ compensation
+  if (params.eqCurve && params.eqCurve !== 'none') {
+    applyEQ(samples, { ...params, sampleRate: previewRate });
   }
 
   // Gain
@@ -1130,6 +1129,19 @@ function bindEvents() {
       updateEstimatedSize();
     });
   });
+
+  // EQ hint text
+  const EQ_HINTS = {
+    'a-weight': 'Shapes the sweep so perceived loudness is even (110 Hz–20 kHz)',
+    'inverse-riaa': 'For testing phono preamps — output through RIAA playback should measure flat (20 Hz–20 kHz)',
+  };
+  function updateEQHint() {
+    const hint = EQ_HINTS[els.eqCurve.value] || '';
+    els.eqCurveHint.textContent = hint;
+    els.eqCurveHint.style.display = hint ? '' : 'none';
+  }
+  els.eqCurve.addEventListener('change', updateEQHint);
+  updateEQHint();
 
   // Action buttons
   els.previewBtn.addEventListener('click', startPreview);
