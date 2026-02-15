@@ -293,14 +293,15 @@ export class Visualizer {
   }
 
   /**
-   * Draw a frequency-vs-time plot for sweeps.
+   * Draw a frequency-vs-time plot for sweeps and patterns.
    * @param {object} params
    * @param {number} params.startFreq
    * @param {number} params.endFreq
    * @param {number} params.duration - seconds
-   * @param {string} params.type - "exponential" | "linear" | "stepped"
+   * @param {string} params.type - "exponential" | "linear" | "stepped" | "pattern"
    * @param {number} [params.leadSilence] - ms
    * @param {number} [params.trailSilence] - ms
+   * @param {Array} [params.patternSequence] - required when type === "pattern"
    */
   drawFrequencyPlot(params) {
     this._lastFreqParams = params;
@@ -315,7 +316,20 @@ export class Visualizer {
     ctx.fillStyle = this._bgColor;
     ctx.fillRect(0, 0, w, h);
 
-    const { startFreq, endFreq, type } = params;
+    let { startFreq, endFreq, type } = params;
+
+    // For pattern sequences, derive freq axis bounds from the step data
+    if (type === 'pattern' && params.patternSequence && params.patternSequence.length) {
+      const freqs = params.patternSequence.map(s => s.hz).filter(Boolean);
+      startFreq = Math.min(...freqs);
+      endFreq = Math.max(...freqs);
+      // Give a little headroom when all steps are the same frequency
+      if (startFreq === endFreq) {
+        startFreq = startFreq / 2;
+        endFreq = endFreq * 2;
+      }
+    }
+
     if (startFreq == null || !endFreq || startFreq >= endFreq || startFreq < 0) return;
 
     const reps = params.repetitions || 1;
@@ -389,6 +403,27 @@ export class Visualizer {
           ctx.moveTo(x1, y);
           ctx.lineTo(x2, y);
           ctx.stroke();
+        }
+      } else if (type === 'pattern' && params.patternSequence && params.patternSequence.length) {
+        // Draw each tone burst as a horizontal segment at its frequency
+        const sequence = params.patternSequence;
+        const totalPatternSec = sequence.reduce((s, st) => s + (st.on_ms + st.off_ms) / 1000, 0);
+        let tSec = 0;
+
+        for (const step of sequence) {
+          const onSec = step.on_ms / 1000;
+          const freq = Math.max(1, step.hz);
+          const logF = Math.log10(freq);
+          const y = h - margin - (logF - logMin) / (logMax - logMin) * (h - margin * 2);
+          const x1 = repStartX + (tSec / totalPatternSec) * (repEndX - repStartX);
+          const x2 = repStartX + ((tSec + onSec) / totalPatternSec) * (repEndX - repStartX);
+
+          ctx.beginPath();
+          ctx.moveTo(x1, y);
+          ctx.lineTo(Math.max(x1 + 1, x2), y); // ensure at least 1px visible
+          ctx.stroke();
+
+          tSec += onSec + step.off_ms / 1000;
         }
       } else {
         // Continuous sweep trajectory
@@ -533,6 +568,17 @@ export class Visualizer {
         if (stepIndex >= frequencies.length) return null;
         if (timeInStep > dwellTime) return null; // in gap between steps
         return frequencies[stepIndex];
+      } else if (type === 'pattern' && params.patternSequence && params.patternSequence.length) {
+        const timeInSweep = t * singleDuration;
+        let cursor = 0;
+        for (const step of params.patternSequence) {
+          const onSec = step.on_ms / 1000;
+          const offSec = step.off_ms / 1000;
+          if (timeInSweep < cursor + onSec) return step.hz;
+          if (timeInSweep < cursor + onSec + offSec) return null; // in gap
+          cursor += onSec + offSec;
+        }
+        return null;
       } else if (type === 'exponential') {
         return startFreq * Math.pow(endFreq / startFreq, t);
       } else {

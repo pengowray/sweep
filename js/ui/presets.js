@@ -306,6 +306,123 @@ export const SIGNAL_PRESETS = [
     interSweepSilence: 0,
     generateInverse: false,
   },
+
+  // ── Pattern presets ────────────────────────────────────────────────────────
+  {
+    id: 'xdr-burst',
+    name: 'XDR Burst',
+    description: 'EMI/PolyGram Binary Octave — 11-tone alignment burst at -40 dBFS',
+    signalType: 'pattern',
+    leadSilence: 0,
+    trailSilence: 500,
+    fadeInType: 'none',
+    fadeInDuration: '0',
+    fadeOutType: 'none',
+    fadeOutDuration: '0',
+    channelMode: 'mono',
+    repetitions: 1,
+    interSweepSilence: 0,
+    eqCurve: 'none',
+    patternData: {
+      fadeMs: 2,
+      sequence: [
+        { hz: 31.25,   db: -40, on_ms: 166.67, off_ms: 0 },
+        { hz: 62.5,    db: -40, on_ms: 166.67, off_ms: 0 },
+        { hz: 125.0,   db: -40, on_ms: 166.67, off_ms: 0 },
+        { hz: 250.0,   db: -40, on_ms: 166.67, off_ms: 0 },
+        { hz: 500.0,   db: -40, on_ms: 166.67, off_ms: 0 },
+        { hz: 1000.0,  db: -40, on_ms: 166.67, off_ms: 0 },
+        { hz: 2000.0,  db: -40, on_ms: 166.67, off_ms: 0 },
+        { hz: 4000.0,  db: -40, on_ms: 166.67, off_ms: 0 },
+        { hz: 8000.0,  db: -40, on_ms: 166.67, off_ms: 0 },
+        { hz: 16000.0, db: -40, on_ms: 166.67, off_ms: 0 },
+        { hz: 18000.0, db: -40, on_ms:  83.33, off_ms: 0 },
+      ],
+    },
+  },
+  {
+    id: 'bbc-pips',
+    name: 'BBC Pips',
+    description: 'Greenwich Time Signal — 5×100 ms + 1×500 ms sine at 1 kHz',
+    signalType: 'pattern',
+    leadSilence: 0,
+    trailSilence: 0,
+    fadeInType: 'none',
+    fadeInDuration: '0',
+    fadeOutType: 'none',
+    fadeOutDuration: '0',
+    channelMode: 'mono',
+    repetitions: 1,
+    interSweepSilence: 0,
+    eqCurve: 'none',
+    patternData: {
+      fadeMs: 5,
+      sequence: [
+        { hz: 1000, db: 0, on_ms: 100, off_ms: 900 },
+        { hz: 1000, db: 0, on_ms: 100, off_ms: 900 },
+        { hz: 1000, db: 0, on_ms: 100, off_ms: 900 },
+        { hz: 1000, db: 0, on_ms: 100, off_ms: 900 },
+        { hz: 1000, db: 0, on_ms: 100, off_ms: 900 },
+        { hz: 1000, db: 0, on_ms: 500, off_ms:   0 },
+      ],
+    },
+  },
+  {
+    id: 'hearing-test',
+    name: 'Hearing Test',
+    description: 'ISO 8253-1 Modified Hughson-Westlake PTA protocol (non-interactive)',
+    signalType: 'pattern',
+    outputLevel: 0,
+    leadSilence: 500,
+    trailSilence: 1000,
+    fadeInType: 'none',
+    fadeInDuration: '0',
+    fadeOutType: 'none',
+    fadeOutDuration: '0',
+    channelMode: 'mono',
+    repetitions: 1,
+    interSweepSilence: 0,
+    eqCurve: 'none',
+    patternData: {
+      fadeMs: 40,
+      sequence: [
+        // 1 kHz Anchor (test start)
+        { hz: 1000, db: -20.0, on_ms: 225, off_ms: 225 },
+        { hz: 1000, db: -30.0, on_ms: 225, off_ms: 225 },
+        { hz: 1000, db: -40.0, on_ms: 225, off_ms: 2000 },
+        // 2 kHz
+        { hz: 2000, db: -20.5, on_ms: 225, off_ms: 225 },
+        { hz: 2000, db: -30.5, on_ms: 225, off_ms: 225 },
+        { hz: 2000, db: -40.5, on_ms: 225, off_ms: 2000 },
+        // 4 kHz
+        { hz: 4000, db: -22.0, on_ms: 225, off_ms: 225 },
+        { hz: 4000, db: -32.0, on_ms: 225, off_ms: 225 },
+        { hz: 4000, db: -42.0, on_ms: 225, off_ms: 2000 },
+        // 8 kHz
+        { hz: 8000, db: -15.0, on_ms: 225, off_ms: 225 },
+        { hz: 8000, db: -25.0, on_ms: 225, off_ms: 225 },
+        { hz: 8000, db: -35.0, on_ms: 225, off_ms: 2000 },
+        // 12 kHz (extended high)
+        { hz: 12000, db: -12.0, on_ms: 225, off_ms: 225 },
+        { hz: 12000, db: -22.0, on_ms: 225, off_ms: 225 },
+        { hz: 12000, db: -32.0, on_ms: 225, off_ms: 2000 },
+        // 1 kHz reliability retest
+        { hz: 1000, db: -20.0, on_ms: 225, off_ms: 1500 },
+        // 500 Hz
+        { hz: 500, db: -12.0, on_ms: 225, off_ms: 225 },
+        { hz: 500, db: -22.0, on_ms: 225, off_ms: 225 },
+        { hz: 500, db: -32.0, on_ms: 225, off_ms: 2000 },
+        // 250 Hz
+        { hz: 250, db:  -8.0, on_ms: 225, off_ms: 225 },
+        { hz: 250, db: -18.0, on_ms: 225, off_ms: 225 },
+        { hz: 250, db: -28.0, on_ms: 225, off_ms: 2000 },
+        // 125 Hz (deep bass)
+        { hz: 125, db:  -4.0, on_ms: 225, off_ms: 225 },
+        { hz: 125, db: -14.0, on_ms: 225, off_ms: 225 },
+        { hz: 125, db: -24.0, on_ms: 225, off_ms: 2000 },
+      ],
+    },
+  },
 ];
 
 /**
@@ -416,6 +533,19 @@ export function applySignalPreset(preset, elements, currentSampleRate) {
 
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  // Serialize patternData into the hidden input (Pattern signal type)
+  if (preset.patternData !== undefined && elements.patternData) {
+    elements.patternData.value = JSON.stringify(preset.patternData);
+    elements.patternData.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  // Allow signal presets to optionally override outputLevel (e.g. calibrated hearing test)
+  if (preset.outputLevel !== undefined && elements.outputLevel) {
+    elements.outputLevel.value = preset.outputLevel;
+    elements.outputLevel.dispatchEvent(new Event('input', { bubbles: true }));
+    elements.outputLevel.dispatchEvent(new Event('change', { bubbles: true }));
   }
 }
 

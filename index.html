@@ -35,6 +35,7 @@
             <option value="pink">Pink Noise</option>
             <option value="mls">MLS (Max-Length Sequence)</option>
             <option value="stepped">Stepped Sine</option>
+            <option value="pattern">Pattern</option>
           </select>
         </div>
 
@@ -103,6 +104,17 @@
           </div>
           <div class="control-group">
             <label>Computed Duration: <span id="mlsDuration">1.365s</span></label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pattern-specific controls -->
+      <div id="patternControls" class="conditional-controls" hidden>
+        <input type="hidden" id="patternData" value="">
+        <div class="controls-grid">
+          <div class="control-group">
+            <label>Sequence</label>
+            <span id="patternInfo" style="font-size:0.85em;color:var(--text-muted,#888);">—</span>
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { generateExponentialSweep, generateLinearSweep, generateInverseFilter } 
 import { generateWhiteNoise, generatePinkNoise } from './generators/noise.js';
 import { generateMLS } from './generators/mls.js';
 import { generateSteppedSine } from './generators/stepped-sine.js';
+import { generatePattern } from './generators/pattern.js';
 import { encodeWAV, generateFilename, buildBwfDescription } from './audio/wav-encoder.js';
 import {
   applyFades, applyGain, addSilence, repeatWithSilence,
@@ -83,6 +84,16 @@ self.onmessage = function (event) {
           dwellTime: params.dwellTime || 0.5,
           gapTime: params.gapTime || 0.05,
           spacing: params.steppedSpacing || 'logarithmic',
+          onProgress: genProgress,
+        });
+        computedDuration = samples.length / params.sampleRate;
+        break;
+
+      case 'pattern':
+        samples = generatePattern({
+          patternSequence: params.patternSequence || [],
+          patternFadeMs: params.patternFadeMs ?? 5,
+          sampleRate: params.sampleRate,
           onProgress: genProgress,
         });
         computedDuration = samples.length / params.sampleRate;

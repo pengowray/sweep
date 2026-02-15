@@ -8,6 +8,7 @@ import { generateExponentialSweep, generateLinearSweep } from './generators/swee
 import { generateWhiteNoise, generatePinkNoise } from './generators/noise.js';
 import { generateMLS, mlsDuration } from './generators/mls.js';
 import { generateSteppedSine, steppedSineDuration, computeSteppedFrequencies } from './generators/stepped-sine.js';
+import { generatePattern, patternDuration } from './generators/pattern.js';
 import { applyFades, applyGain, addSilence, repeatWithSilence, applyEQ } from './utils.js';
 
 // ─── DOM References ───────────────────────────────────────────────
@@ -52,6 +53,9 @@ const els = {
   seedGroup: $('seedGroup'),
   mlsControls: $('mlsControls'),
   steppedControls: $('steppedControls'),
+  patternControls: $('patternControls'),
+  patternData: $('patternData'),
+  patternInfo: $('patternInfo'),
   inverseFilterGroup: $('inverseFilterGroup'),
   eqCurveGroup: $('eqCurveGroup'),
   fadeInDurationGroup: $('fadeInDurationGroup'),
@@ -142,6 +146,10 @@ function getParams() {
     gapTime: parseFloat(els.gapTime.value),
     steppedSpacing: els.steppedSpacing.value,
     seed: parseInt(els.noiseSeed.value) || 0,
+    ...(() => {
+      const pd = JSON.parse(els.patternData?.value || '{"fadeMs":5,"sequence":[]}');
+      return { patternSequence: pd.sequence || [], patternFadeMs: pd.fadeMs ?? 5 };
+    })(),
   };
 }
 
@@ -152,16 +160,18 @@ function updateVisibility() {
   const hasFreq = ['ess', 'linear', 'stepped'].includes(type);
   const isMLS = type === 'mls';
   const isStepped = type === 'stepped';
+  const isPattern = type === 'pattern';
   const isESS = type === 'ess';
   const isSweep = ['ess', 'linear'].includes(type);
   const isNoise = ['white', 'pink'].includes(type);
-  const hasFreqPlot = hasFreq;
+  const hasFreqPlot = hasFreq || isPattern;
 
   els.startFreqGroup.hidden = !hasFreq;
   els.endFreqGroup.hidden = !hasFreq;
   els.durationGroup.hidden = isMLS;
   els.mlsControls.hidden = !isMLS;
   els.steppedControls.hidden = !isStepped;
+  els.patternControls.hidden = !isPattern;
   els.inverseFilterGroup.hidden = !isESS;
   els.freqPlotWrapper.hidden = !hasFreqPlot;
 
@@ -184,7 +194,7 @@ function updateVisibility() {
   updateChannelOptions(type, isNoise, isSweep, isMLS);
 
   // Grey out advanced settings that don't apply
-  updateAdvancedVisibility(type, isESS, isSweep, isNoise, isMLS, isStepped);
+  updateAdvancedVisibility(type, isESS, isSweep, isNoise, isMLS, isStepped, isPattern);
 
   // Update MLS duration display
   if (isMLS) {
@@ -204,6 +214,14 @@ function updateVisibility() {
     });
     els.duration.value = dur.toFixed(2);
     els.duration.disabled = true;
+  } else if (isPattern) {
+    const pd = JSON.parse(els.patternData?.value || '{"sequence":[]}');
+    const dur = patternDuration(pd.sequence || []);
+    els.duration.value = dur.toFixed(3);
+    els.duration.disabled = true;
+    if (els.patternInfo) {
+      els.patternInfo.textContent = `${(pd.sequence || []).length} steps · ${dur.toFixed(3)}s`;
+    }
   } else if (!isMLS) {
     els.duration.disabled = false;
   }
@@ -254,9 +272,9 @@ function updateChannelOptions(type, isNoise, isSweep, isMLS) {
 }
 
 // ─── Advanced Settings Visibility ───────────────────────────────
-function updateAdvancedVisibility(type, isESS, isSweep, isNoise, isMLS, isStepped) {
-  // Fades: relevant for sweeps and noise, less so for MLS
-  const hasFades = !isMLS;
+function updateAdvancedVisibility(type, isESS, isSweep, isNoise, isMLS, isStepped, isPattern) {
+  // Fades: relevant for sweeps and noise; Pattern handles fades internally, MLS has none
+  const hasFades = !isMLS && !isPattern;
   els.fadeInTypeGroup.style.opacity = hasFades ? '1' : '0.4';
   els.fadeInTypeGroup.style.pointerEvents = hasFades ? '' : 'none';
   els.fadeOutTypeGroup.style.opacity = hasFades ? '1' : '0.4';
@@ -352,7 +370,7 @@ function updateEstimatedSize() {
 // ─── Frequency Plot Update ───────────────────────────────────────
 function updateFrequencyPlot() {
   const type = els.signalType.value;
-  if (!['ess', 'linear', 'stepped'].includes(type)) return;
+  if (!['ess', 'linear', 'stepped', 'pattern'].includes(type)) return;
 
   const reps = parseInt(els.repetitions.value) || 1;
   let duration = parseFloat(els.duration.value) || 5;
@@ -378,6 +396,10 @@ function updateFrequencyPlot() {
     );
     // Use computed duration (determined by step params, not UI duration field)
     duration = plotParams.steppedFrequencies.length * (plotParams.dwellTime + plotParams.gapTime);
+  } else if (type === 'pattern') {
+    const pd = JSON.parse(els.patternData?.value || '{"sequence":[]}');
+    plotParams.patternSequence = pd.sequence || [];
+    duration = patternDuration(plotParams.patternSequence);
   }
 
   // Total sweep duration accounting for repetitions
@@ -624,6 +646,9 @@ function generateOnMainThread(params) {
           break;
         case 'stepped':
           samples = generateSteppedSine(params);
+          break;
+        case 'pattern':
+          samples = generatePattern(params);
           break;
       }
 
