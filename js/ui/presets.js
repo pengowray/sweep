@@ -395,6 +395,24 @@ export const SIGNAL_PRESETS = [
     interSweepSilence: 0,
     eqCurve: 'none',
   },
+  {
+    id: 'iso226-equal-loudness',
+    name: 'ISO 226 Equal Loudness',
+    description: 'Octave tones levelled to ISO 226:2003 70-phon contour — all should sound equally loud',
+    signalType: 'pattern',
+    patternSequenceId: 'iso226-equal-loudness',
+    outputLevel: 0,
+    leadSilence: 500,
+    trailSilence: 1000,
+    fadeInType: 'none',
+    fadeInDuration: '0',
+    fadeOutType: 'none',
+    fadeOutDuration: '0',
+    channelMode: 'mono',
+    repetitions: 1,
+    interSweepSilence: 0,
+    eqCurve: 'none',
+  },
 ];
 
 /**
@@ -568,6 +586,26 @@ export const PATTERN_SEQUENCES = [
       { hz: 4000,  db: 0, on_ms: 1000, off_ms: 500 },
       { hz: 8000,  db: 0, on_ms: 1000, off_ms: 500 },
       { hz: 16000, db: 0, on_ms: 1000, off_ms: 500 },
+    ],
+  },
+  {
+    id: 'iso226-equal-loudness',
+    name: 'ISO 226 Equal Loudness',
+    // Levels computed from ISO 226:2003 Table 1 parameters using the standard formula,
+    // normalised so the highest-level frequency (125 Hz) is at 0 dBFS.
+    // At 70 phons: 125 Hz = 82.9 dB SPL, 4 kHz = 68.0 dB SPL (most sensitive), 8 kHz = 81.5 dB SPL.
+    // The 500–2000 Hz region is nearly flat (±1.5 dB) at this loudness level.
+    // Use outputLevel: 0 — the db values here are the actual dBFS amplitudes.
+    description: 'ISO 226:2003 70-phon equal-loudness contour (125 Hz–8 kHz) — set outputLevel to 0',
+    fadeMs: 10,
+    sequence: [
+      { hz: 125,  db:   0.0, on_ms: 1500, off_ms: 500 }, // 82.9 dB SPL at 70 phons
+      { hz: 250,  db:  -7.0, on_ms: 1500, off_ms: 500 }, // 75.9 dB SPL
+      { hz: 500,  db: -11.4, on_ms: 1500, off_ms: 500 }, // 71.5 dB SPL
+      { hz: 1000, db: -12.9, on_ms: 1500, off_ms: 500 }, // 70.0 dB SPL (reference)
+      { hz: 2000, db: -12.6, on_ms: 1500, off_ms: 500 }, // 70.3 dB SPL
+      { hz: 4000, db: -14.9, on_ms: 1500, off_ms: 500 }, // 68.0 dB SPL (most sensitive)
+      { hz: 8000, db:  -1.4, on_ms: 1500, off_ms: 500 }, // 81.5 dB SPL
     ],
   },
 ];
