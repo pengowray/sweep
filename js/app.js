@@ -1132,8 +1132,8 @@ function bindEvents() {
 
   // EQ hint text
   const EQ_HINTS = {
-    'a-weight': 'Shapes the sweep so perceived loudness is even (110 Hz–20 kHz)',
-    'inverse-riaa': 'For testing phono preamps — output through RIAA playback should measure flat (20 Hz–20 kHz)',
+    'a-weight': 'Shapes the sweep so perceived loudness is theoretically even (110 Hz–20 kHz)',
+    'inverse-riaa': 'For example, for testing phono preamps. Output through RIAA playback should measure flat (20 Hz–20 kHz)',
   };
   function updateEQHint() {
     const hint = EQ_HINTS[els.eqCurve.value] || '';
