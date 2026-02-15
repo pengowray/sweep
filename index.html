@@ -113,8 +113,11 @@
         <input type="hidden" id="patternData" value="">
         <div class="controls-grid">
           <div class="control-group">
-            <label>Sequence</label>
-            <span id="patternInfo" style="font-size:0.85em;color:var(--text-muted,#888);">—</span>
+            <label for="patternSequenceSelect">Sequence</label>
+            <select id="patternSequenceSelect">
+              <!-- options populated by app.js from PATTERN_SEQUENCES -->
+            </select>
+            <p class="hint" id="patternInfo"></p>
           </div>
         </div>
       </div>

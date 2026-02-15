@@ -1,6 +1,6 @@
 // js/app.js — Main controller: UI bindings, state, orchestration
 
-import { SIGNAL_PRESETS, FORMAT_PRESETS, applySignalPreset, applyFormatPreset } from './ui/presets.js';
+import { SIGNAL_PRESETS, FORMAT_PRESETS, PATTERN_SEQUENCES, applySignalPreset, applyFormatPreset } from './ui/presets.js';
 import { Visualizer } from './ui/visualizer.js';
 import { PreviewPlayer } from './audio/preview.js';
 import { estimateFileSize, formatFileSize, dBFSToLinear, essOneOctaveFadeSamples } from './utils.js';
@@ -55,6 +55,7 @@ const els = {
   steppedControls: $('steppedControls'),
   patternControls: $('patternControls'),
   patternData: $('patternData'),
+  patternSequenceSelect: $('patternSequenceSelect'),
   patternInfo: $('patternInfo'),
   inverseFilterGroup: $('inverseFilterGroup'),
   eqCurveGroup: $('eqCurveGroup'),
@@ -219,9 +220,6 @@ function updateVisibility() {
     const dur = patternDuration(pd.sequence || []);
     els.duration.value = dur.toFixed(3);
     els.duration.disabled = true;
-    if (els.patternInfo) {
-      els.patternInfo.textContent = `${(pd.sequence || []).length} steps · ${dur.toFixed(3)}s`;
-    }
   } else if (!isMLS) {
     els.duration.disabled = false;
   }
@@ -751,6 +749,9 @@ function generatePreviewSamples(params, previewRate) {
     case 'stepped':
       samples = generateSteppedSine({ ...previewParams });
       break;
+    case 'pattern':
+      samples = generatePattern(previewParams);
+      break;
   }
 
   // Apply fades
@@ -1021,6 +1022,39 @@ function renderFormatPresets() {
   });
 }
 
+// ─── Pattern Sequence Dropdown ───────────────────────────────────
+function initPatternSequences() {
+  // Populate the <select> from PATTERN_SEQUENCES
+  els.patternSequenceSelect.innerHTML = PATTERN_SEQUENCES.map(seq =>
+    `<option value="${seq.id}">${seq.name}</option>`
+  ).join('');
+
+  function loadSelectedSequence() {
+    const seq = PATTERN_SEQUENCES.find(s => s.id === els.patternSequenceSelect.value);
+    if (seq) {
+      els.patternData.value = JSON.stringify({ fadeMs: seq.fadeMs, sequence: seq.sequence });
+      if (els.patternInfo) {
+        const dur = patternDuration(seq.sequence);
+        els.patternInfo.textContent = `${seq.description} · ${seq.sequence.length} steps · ${dur.toFixed(2)}s`;
+      }
+    } else {
+      els.patternData.value = '';
+      if (els.patternInfo) els.patternInfo.textContent = '';
+    }
+  }
+
+  // Load the first sequence immediately so patternData is valid on first render
+  loadSelectedSequence();
+
+  // When the selection changes, reload sequence data and refresh UI
+  els.patternSequenceSelect.addEventListener('change', () => {
+    loadSelectedSequence();
+    updateVisibility();
+    updateFrequencyPlot();
+    scheduleVizUpdate();
+  });
+}
+
 // ─── Event Listeners ─────────────────────────────────────────────
 function bindEvents() {
   // Signal type change
@@ -1178,6 +1212,7 @@ function bindEvents() {
 function init() {
   renderSignalPresets();
   renderFormatPresets();
+  initPatternSequences();
   bindEvents();
 
   // Auto-select "Quick Room Test" preset on fresh start
