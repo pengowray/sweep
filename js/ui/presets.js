@@ -438,43 +438,102 @@ export const PATTERN_SEQUENCES = [
   {
     id: 'hearing-test',
     name: 'Hearing Test',
-    description: 'ISO 8253-1 Modified Hughson-Westlake PTA',
+    description: 'ISO 8253-1 Modified Hughson-Westlake PTA. This is not a clinical diagnostic tool.',
     fadeMs: 40,
     sequence: [
       // 1 kHz Anchor (test start)
       { hz: 1000, db: -20.0, on_ms: 225, off_ms: 225 },
+      { hz: 1000, db: -20.0, on_ms: 225, off_ms: 225 },
+      { hz: 1000, db: -20.0, on_ms: 225, off_ms: 2000 },
       { hz: 1000, db: -30.0, on_ms: 225, off_ms: 225 },
-      { hz: 1000, db: -40.0, on_ms: 225, off_ms: 2000 },
+      { hz: 1000, db: -30.0, on_ms: 225, off_ms: 225 },
+      { hz: 1000, db: -30.0, on_ms: 225, off_ms: 2000 },
+      { hz: 1000, db: -40.0, on_ms: 225, off_ms: 225 },
+      { hz: 1000, db: -40.0, on_ms: 225, off_ms: 225 },
+      { hz: 1000, db: -40.0, on_ms: 225, off_ms: 3000 },
+      
       // 2 kHz
       { hz: 2000, db: -20.5, on_ms: 225, off_ms: 225 },
+      { hz: 2000, db: -20.5, on_ms: 225, off_ms: 225 },
+      { hz: 2000, db: -20.5, on_ms: 225, off_ms: 2000 },
       { hz: 2000, db: -30.5, on_ms: 225, off_ms: 225 },
-      { hz: 2000, db: -40.5, on_ms: 225, off_ms: 2000 },
+      { hz: 2000, db: -30.5, on_ms: 225, off_ms: 225 },
+      { hz: 2000, db: -30.5, on_ms: 225, off_ms: 2000 },
+      { hz: 2000, db: -40.5, on_ms: 225, off_ms: 225 },
+      { hz: 2000, db: -40.5, on_ms: 225, off_ms: 225 },
+      { hz: 2000, db: -40.5, on_ms: 225, off_ms: 3000 },
+
       // 4 kHz
       { hz: 4000, db: -22.0, on_ms: 225, off_ms: 225 },
+      { hz: 4000, db: -22.0, on_ms: 225, off_ms: 225 },
+      { hz: 4000, db: -22.0, on_ms: 225, off_ms: 2000 },
       { hz: 4000, db: -32.0, on_ms: 225, off_ms: 225 },
-      { hz: 4000, db: -42.0, on_ms: 225, off_ms: 2000 },
+      { hz: 4000, db: -32.0, on_ms: 225, off_ms: 225 },
+      { hz: 4000, db: -32.0, on_ms: 225, off_ms: 2000 },
+      { hz: 4000, db: -42.0, on_ms: 225, off_ms: 225 },
+      { hz: 4000, db: -42.0, on_ms: 225, off_ms: 225 },
+      { hz: 4000, db: -42.0, on_ms: 225, off_ms: 3000 },
+      
+      
       // 8 kHz
       { hz: 8000, db: -15.0, on_ms: 225, off_ms: 225 },
+      { hz: 8000, db: -15.0, on_ms: 225, off_ms: 225 },
+      { hz: 8000, db: -15.0, on_ms: 225, off_ms: 2000 },
       { hz: 8000, db: -25.0, on_ms: 225, off_ms: 225 },
-      { hz: 8000, db: -35.0, on_ms: 225, off_ms: 2000 },
+      { hz: 8000, db: -25.0, on_ms: 225, off_ms: 225 },
+      { hz: 8000, db: -25.0, on_ms: 225, off_ms: 2000 },
+      { hz: 8000, db: -35.0, on_ms: 225, off_ms: 225 },
+      { hz: 8000, db: -35.0, on_ms: 225, off_ms: 225 },
+      { hz: 8000, db: -35.0, on_ms: 225, off_ms: 3000 },
+      
       // 12 kHz (extended high)
       { hz: 12000, db: -12.0, on_ms: 225, off_ms: 225 },
+      { hz: 12000, db: -12.0, on_ms: 225, off_ms: 225 },
+      { hz: 12000, db: -12.0, on_ms: 225, off_ms: 2000 },
       { hz: 12000, db: -22.0, on_ms: 225, off_ms: 225 },
-      { hz: 12000, db: -32.0, on_ms: 225, off_ms: 2000 },
+      { hz: 12000, db: -22.0, on_ms: 225, off_ms: 225 },
+      { hz: 12000, db: -22.0, on_ms: 225, off_ms: 2000 },
+      { hz: 12000, db: -32.0, on_ms: 225, off_ms: 225 },
+      { hz: 12000, db: -32.0, on_ms: 225, off_ms: 225 },
+      { hz: 12000, db: -32.0, on_ms: 225, off_ms: 3000 },
+      
       // 1 kHz reliability retest
-      { hz: 1000, db: -20.0, on_ms: 225, off_ms: 1500 },
+      { hz: 1000, db: -20.0, on_ms: 225, off_ms: 225 },
+      { hz: 1000, db: -20.0, on_ms: 225, off_ms: 225 },
+      { hz: 1000, db: -20.0, on_ms: 225, off_ms: 3000 },
+      
       // 500 Hz
       { hz: 500, db: -12.0, on_ms: 225, off_ms: 225 },
+      { hz: 500, db: -12.0, on_ms: 225, off_ms: 225 },
+      { hz: 500, db: -12.0, on_ms: 225, off_ms: 2000 },
       { hz: 500, db: -22.0, on_ms: 225, off_ms: 225 },
-      { hz: 500, db: -32.0, on_ms: 225, off_ms: 2000 },
+      { hz: 500, db: -22.0, on_ms: 225, off_ms: 225 },
+      { hz: 500, db: -22.0, on_ms: 225, off_ms: 2000 },
+      { hz: 500, db: -32.0, on_ms: 225, off_ms: 225 },
+      { hz: 500, db: -32.0, on_ms: 225, off_ms: 225 },
+      { hz: 500, db: -32.0, on_ms: 225, off_ms: 3000 },
+
       // 250 Hz
       { hz: 250, db:  -8.0, on_ms: 225, off_ms: 225 },
+      { hz: 250, db:  -8.0, on_ms: 225, off_ms: 225 },
+      { hz: 250, db:  -8.0, on_ms: 225, off_ms: 2000 },
       { hz: 250, db: -18.0, on_ms: 225, off_ms: 225 },
-      { hz: 250, db: -28.0, on_ms: 225, off_ms: 2000 },
+      { hz: 250, db: -18.0, on_ms: 225, off_ms: 225 },
+      { hz: 250, db: -18.0, on_ms: 225, off_ms: 2000 },
+      { hz: 250, db: -28.0, on_ms: 225, off_ms: 225 },
+      { hz: 250, db: -28.0, on_ms: 225, off_ms: 225 },
+      { hz: 250, db: -28.0, on_ms: 225, off_ms: 3000 },
+
       // 125 Hz (deep bass)
       { hz: 125, db:  -4.0, on_ms: 225, off_ms: 225 },
+      { hz: 125, db:  -4.0, on_ms: 225, off_ms: 225 },
+      { hz: 125, db:  -4.0, on_ms: 225, off_ms: 2000 },
       { hz: 125, db: -14.0, on_ms: 225, off_ms: 225 },
-      { hz: 125, db: -24.0, on_ms: 225, off_ms: 2000 },
+      { hz: 125, db: -14.0, on_ms: 225, off_ms: 225 },
+      { hz: 125, db: -14.0, on_ms: 225, off_ms: 2000 },
+      { hz: 125, db: -24.0, on_ms: 225, off_ms: 225 },
+      { hz: 125, db: -24.0, on_ms: 225, off_ms: 225 },
+      { hz: 125, db: -24.0, on_ms: 225, off_ms: 1000 },
     ],
   },
   {
