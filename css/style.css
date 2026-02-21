@@ -505,6 +505,15 @@ details[open] .controls-card {
   );
 }
 
+/* Aliasing underlines on action buttons */
+.btn.aliasing-underline-preview {
+  border-bottom: 2px dashed var(--orange);
+}
+
+.btn.aliasing-underline-download {
+  border-bottom: 2px dashed var(--red);
+}
+
 /* Disabled channel options */
 select option:disabled {
   color: var(--text-dim);

@@ -428,9 +428,15 @@ function updateFrequencyPlot() {
 }
 
 // ─── Aliasing Notice ────────────────────────────────────────────
+function clearAliasingUI() {
+  els.aliasingSection.hidden = true;
+  els.previewBtn.classList.remove('aliasing-underline-preview');
+  els.generateBtn.classList.remove('aliasing-underline-download');
+}
+
 function updateAliasingNotice(plotParams) {
   if (!plotParams) {
-    els.aliasingSection.hidden = true;
+    clearAliasingUI();
     return;
   }
 
@@ -449,7 +455,7 @@ function updateAliasingNotice(plotParams) {
   const downloadExceeded = downloadNyquist && maxFreq > downloadNyquist;
 
   if (!previewExceeded && !downloadExceeded) {
-    els.aliasingSection.hidden = true;
+    clearAliasingUI();
     return;
   }
 
@@ -460,6 +466,10 @@ function updateAliasingNotice(plotParams) {
     }
     return f + ' Hz';
   };
+
+  // Underline the buttons
+  els.previewBtn.classList.toggle('aliasing-underline-preview', previewExceeded);
+  els.generateBtn.classList.toggle('aliasing-underline-download', downloadExceeded);
 
   const silencing = els.silenceAboveNyquist.checked;
   const items = [];
