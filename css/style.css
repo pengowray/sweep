@@ -450,6 +450,58 @@ details[open] .controls-card {
   font-style: italic;
 }
 
+/* Aliasing notice under action buttons */
+.aliasing-notice {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.aliasing-line {
+  display: inline-block;
+  width: 24px;
+  height: 0;
+  border-top: 2px dashed;
+  vertical-align: middle;
+}
+
+.aliasing-line-preview {
+  border-color: var(--orange);
+}
+
+.aliasing-line-download {
+  border-color: var(--red);
+}
+
+.aliasing-line-combined {
+  border-top: none;
+  height: 2px;
+  background: repeating-linear-gradient(
+    to right,
+    var(--red) 0px, var(--red) 4px,
+    transparent 4px, transparent 6px,
+    var(--orange) 6px, var(--orange) 10px,
+    transparent 10px, transparent 12px
+  );
+}
+
+.aliasing-text {
+  color: var(--text-dim);
+}
+
+.aliasing-option {
+  text-align: center;
+  margin-top: 0.3rem;
+  display: flex;
+  justify-content: center;
+}
+
 /* Disabled channel options */
 select option:disabled {
   color: var(--text-dim);

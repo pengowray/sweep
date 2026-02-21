@@ -69,6 +69,15 @@ const els = {
   freqPreset0: $('freqPreset0'),
   mlsDuration: $('mlsDuration'),
 
+  // Aliasing
+  aliasingNotice: $('aliasingNotice'),
+  aliasingKeyPreview: $('aliasingKeyPreview'),
+  aliasingTextPreview: $('aliasingTextPreview'),
+  aliasingKeyDownload: $('aliasingKeyDownload'),
+  aliasingTextDownload: $('aliasingTextDownload'),
+  aliasingOption: $('aliasingOption'),
+  silenceAboveNyquist: $('silenceAboveNyquist'),
+
   // Actions
   previewBtn: $('previewBtn'),
   stopBtn: $('stopBtn'),
@@ -146,6 +155,7 @@ function getParams() {
     dwellTime: parseFloat(els.dwellTime.value),
     gapTime: parseFloat(els.gapTime.value),
     steppedSpacing: els.steppedSpacing.value,
+    silenceAboveNyquist: els.silenceAboveNyquist.checked,
     seed: parseInt(els.noiseSeed.value) || 0,
     ...(() => {
       const pd = JSON.parse(els.patternData?.value || '{"fadeMs":5,"sequence":[]}');
@@ -368,7 +378,10 @@ function updateEstimatedSize() {
 // ─── Frequency Plot Update ───────────────────────────────────────
 function updateFrequencyPlot() {
   const type = els.signalType.value;
-  if (!['ess', 'linear', 'stepped', 'pattern'].includes(type)) return;
+  if (!['ess', 'linear', 'stepped', 'pattern'].includes(type)) {
+    updateAliasingNotice(null);
+    return;
+  }
 
   const reps = parseInt(els.repetitions.value) || 1;
   let duration = parseFloat(els.duration.value) || 5;
@@ -387,6 +400,7 @@ function updateFrequencyPlot() {
     interSweepSilence: interSilence,
     downloadNyquist: sampleRate / 2,
     previewNyquist: previewRate / 2,
+    silenceAboveNyquist: els.silenceAboveNyquist.checked,
   };
 
   if (type === 'stepped') {
@@ -414,6 +428,78 @@ function updateFrequencyPlot() {
   plotParams.singleSweepDuration = duration;
 
   visualizer.drawFrequencyPlot(plotParams);
+  updateAliasingNotice(plotParams);
+}
+
+// ─── Aliasing Notice ────────────────────────────────────────────
+function updateAliasingNotice(plotParams) {
+  if (!plotParams) {
+    els.aliasingNotice.hidden = true;
+    els.aliasingOption.hidden = true;
+    return;
+  }
+
+  const { endFreq, previewNyquist, downloadNyquist } = plotParams;
+
+  // For patterns/stepped, find the actual max frequency
+  let maxFreq = endFreq;
+  if (plotParams.steppedFrequencies && plotParams.steppedFrequencies.length) {
+    maxFreq = Math.max(...plotParams.steppedFrequencies);
+  } else if (plotParams.patternSequence && plotParams.patternSequence.length) {
+    const freqs = plotParams.patternSequence.map(s => s.hz).filter(Boolean);
+    if (freqs.length) maxFreq = Math.max(...freqs);
+  }
+
+  const previewExceeded = previewNyquist && maxFreq > previewNyquist;
+  const downloadExceeded = downloadNyquist && maxFreq > downloadNyquist;
+
+  if (!previewExceeded && !downloadExceeded) {
+    els.aliasingNotice.hidden = true;
+    els.aliasingOption.hidden = true;
+    return;
+  }
+
+  const fmtNyquist = (f) => {
+    if (f >= 1000) {
+      const k = f / 1000;
+      return (k % 1 === 0 ? k : k.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')) + ' kHz';
+    }
+    return f + ' Hz';
+  };
+
+  const same = previewExceeded && downloadExceeded && previewNyquist === downloadNyquist;
+
+  if (same) {
+    // Single combined notice with alternating red/orange key
+    els.aliasingKeyPreview.className = 'aliasing-line aliasing-line-combined';
+    els.aliasingKeyPreview.hidden = false;
+    els.aliasingTextPreview.textContent = `Aliasing above ${fmtNyquist(downloadNyquist)}`;
+    els.aliasingTextPreview.hidden = false;
+    els.aliasingKeyDownload.hidden = true;
+    els.aliasingTextDownload.hidden = true;
+  } else {
+    if (previewExceeded) {
+      els.aliasingKeyPreview.className = 'aliasing-line aliasing-line-preview';
+      els.aliasingTextPreview.textContent = `Preview: aliasing above ${fmtNyquist(previewNyquist)}`;
+      els.aliasingKeyPreview.hidden = false;
+      els.aliasingTextPreview.hidden = false;
+    } else {
+      els.aliasingKeyPreview.hidden = true;
+      els.aliasingTextPreview.hidden = true;
+    }
+    if (downloadExceeded) {
+      els.aliasingKeyDownload.className = 'aliasing-line aliasing-line-download';
+      els.aliasingTextDownload.textContent = `Download: aliasing above ${fmtNyquist(downloadNyquist)}`;
+      els.aliasingKeyDownload.hidden = false;
+      els.aliasingTextDownload.hidden = false;
+    } else {
+      els.aliasingKeyDownload.hidden = true;
+      els.aliasingTextDownload.hidden = true;
+    }
+  }
+
+  els.aliasingNotice.hidden = false;
+  els.aliasingOption.hidden = false;
 }
 
 // ─── Debounced Visualization Update ──────────────────────────────
@@ -912,6 +998,7 @@ function startPreview() {
     previewPlayer.load(leftSamples, previewRate);
   }
   previewPlayer.play();
+  visualizer.setPreviewing(true);
 
   els.previewBtn.hidden = true;
   els.stopBtn.hidden = false;
@@ -926,6 +1013,7 @@ function startPreview() {
   previewPlayer.onEnded(() => {
     els.previewBtn.hidden = false;
     els.stopBtn.hidden = true;
+    visualizer.setPreviewing(false);
     visualizer.fadeOutCursors();
     // If params changed during playback, regenerate visualization now
     if (vizStale) {
@@ -938,6 +1026,7 @@ function stopPreview() {
   previewPlayer.stop();
   els.previewBtn.hidden = false;
   els.stopBtn.hidden = true;
+  visualizer.setPreviewing(false);
   visualizer.fadeOutCursors();
   // If params changed during playback, regenerate visualization now
   if (vizStale) {
@@ -1206,6 +1295,12 @@ function bindEvents() {
   }
   els.eqCurve.addEventListener('change', updateEQHint);
   updateEQHint();
+
+  // Silence above Nyquist checkbox
+  els.silenceAboveNyquist.addEventListener('change', () => {
+    updateFrequencyPlot();
+    scheduleVizUpdate();
+  });
 
   // Action buttons
   els.previewBtn.addEventListener('click', startPreview);
