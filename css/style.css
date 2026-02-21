@@ -451,16 +451,30 @@ details[open] .controls-card {
 }
 
 /* Aliasing notice under action buttons */
-.aliasing-notice {
-  text-align: center;
-  font-size: 0.72rem;
-  color: var(--text-dim);
+.aliasing-section {
   margin-top: 0.4rem;
+}
+
+.aliasing-option {
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.3rem;
+}
+
+.aliasing-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.aliasing-notice-item {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 0.4rem;
-  flex-wrap: wrap;
+  font-size: 0.72rem;
+  color: var(--text-dim);
 }
 
 .aliasing-line {
@@ -468,7 +482,7 @@ details[open] .controls-card {
   width: 24px;
   height: 0;
   border-top: 2px dashed;
-  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .aliasing-line-preview {
@@ -489,17 +503,6 @@ details[open] .controls-card {
     var(--orange) 6px, var(--orange) 10px,
     transparent 10px, transparent 12px
   );
-}
-
-.aliasing-text {
-  color: var(--text-dim);
-}
-
-.aliasing-option {
-  text-align: center;
-  margin-top: 0.3rem;
-  display: flex;
-  justify-content: center;
 }
 
 /* Disabled channel options */

@@ -70,12 +70,8 @@ const els = {
   mlsDuration: $('mlsDuration'),
 
   // Aliasing
+  aliasingSection: $('aliasingSection'),
   aliasingNotice: $('aliasingNotice'),
-  aliasingKeyPreview: $('aliasingKeyPreview'),
-  aliasingTextPreview: $('aliasingTextPreview'),
-  aliasingKeyDownload: $('aliasingKeyDownload'),
-  aliasingTextDownload: $('aliasingTextDownload'),
-  aliasingOption: $('aliasingOption'),
   silenceAboveNyquist: $('silenceAboveNyquist'),
 
   // Actions
@@ -434,8 +430,7 @@ function updateFrequencyPlot() {
 // ─── Aliasing Notice ────────────────────────────────────────────
 function updateAliasingNotice(plotParams) {
   if (!plotParams) {
-    els.aliasingNotice.hidden = true;
-    els.aliasingOption.hidden = true;
+    els.aliasingSection.hidden = true;
     return;
   }
 
@@ -454,8 +449,7 @@ function updateAliasingNotice(plotParams) {
   const downloadExceeded = downloadNyquist && maxFreq > downloadNyquist;
 
   if (!previewExceeded && !downloadExceeded) {
-    els.aliasingNotice.hidden = true;
-    els.aliasingOption.hidden = true;
+    els.aliasingSection.hidden = true;
     return;
   }
 
@@ -467,39 +461,31 @@ function updateAliasingNotice(plotParams) {
     return f + ' Hz';
   };
 
-  const same = previewExceeded && downloadExceeded && previewNyquist === downloadNyquist;
+  const silencing = els.silenceAboveNyquist.checked;
+  const items = [];
 
-  if (same) {
-    // Single combined notice with alternating red/orange key
-    els.aliasingKeyPreview.className = 'aliasing-line aliasing-line-combined';
-    els.aliasingKeyPreview.hidden = false;
-    els.aliasingTextPreview.textContent = `Aliasing above ${fmtNyquist(downloadNyquist)}`;
-    els.aliasingTextPreview.hidden = false;
-    els.aliasingKeyDownload.hidden = true;
-    els.aliasingTextDownload.hidden = true;
-  } else {
-    if (previewExceeded) {
-      els.aliasingKeyPreview.className = 'aliasing-line aliasing-line-preview';
-      els.aliasingTextPreview.textContent = `Preview: aliasing above ${fmtNyquist(previewNyquist)}`;
-      els.aliasingKeyPreview.hidden = false;
-      els.aliasingTextPreview.hidden = false;
-    } else {
-      els.aliasingKeyPreview.hidden = true;
-      els.aliasingTextPreview.hidden = true;
-    }
-    if (downloadExceeded) {
-      els.aliasingKeyDownload.className = 'aliasing-line aliasing-line-download';
-      els.aliasingTextDownload.textContent = `Download: aliasing above ${fmtNyquist(downloadNyquist)}`;
-      els.aliasingKeyDownload.hidden = false;
-      els.aliasingTextDownload.hidden = false;
-    } else {
-      els.aliasingKeyDownload.hidden = true;
-      els.aliasingTextDownload.hidden = true;
-    }
+  if (previewExceeded) {
+    const verb = silencing ? 'Silenced' : 'Aliasing';
+    items.push(
+      `<div class="aliasing-notice-item">` +
+      `<span class="aliasing-line aliasing-line-preview"></span>` +
+      `<span>Preview: ${verb} above ${fmtNyquist(previewNyquist)}</span>` +
+      `</div>`
+    );
   }
 
-  els.aliasingNotice.hidden = false;
-  els.aliasingOption.hidden = false;
+  if (downloadExceeded) {
+    const verb = silencing ? 'Silenced' : 'Aliasing';
+    items.push(
+      `<div class="aliasing-notice-item">` +
+      `<span class="aliasing-line aliasing-line-download"></span>` +
+      `<span>Download: ${verb} above ${fmtNyquist(downloadNyquist)}</span>` +
+      `</div>`
+    );
+  }
+
+  els.aliasingNotice.innerHTML = items.join('');
+  els.aliasingSection.hidden = false;
 }
 
 // ─── Debounced Visualization Update ──────────────────────────────

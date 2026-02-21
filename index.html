@@ -349,17 +349,14 @@
         </button>
       </div>
       <div class="preview-note" id="previewNote"></div>
-      <div class="aliasing-notice" id="aliasingNotice" hidden>
-        <span class="aliasing-line aliasing-line-preview" id="aliasingKeyPreview"></span>
-        <span class="aliasing-text" id="aliasingTextPreview"></span>
-        <span class="aliasing-line aliasing-line-download" id="aliasingKeyDownload"></span>
-        <span class="aliasing-text" id="aliasingTextDownload"></span>
-      </div>
-      <div class="aliasing-option" id="aliasingOption" hidden>
-        <label class="checkbox-label checkbox-label-sm">
-          <input type="checkbox" id="silenceAboveNyquist">
-          Silence frequencies above Nyquist to avoid aliasing
-        </label>
+      <div class="aliasing-section" id="aliasingSection" hidden>
+        <div class="aliasing-option">
+          <label class="checkbox-label checkbox-label-sm">
+            <input type="checkbox" id="silenceAboveNyquist">
+            Silence frequencies above Nyquist to avoid aliasing
+          </label>
+        </div>
+        <div class="aliasing-notice" id="aliasingNotice"></div>
       </div>
 
       <div class="progress-section" id="progressSection" hidden>
