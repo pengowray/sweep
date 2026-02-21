@@ -664,6 +664,17 @@ select option:disabled {
   line-height: 1.6;
 }
 
+.about-section summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text);
+  padding: 0.25rem 0;
+}
+
+.about-section details[open] summary {
+  margin-bottom: 0.75rem;
+}
+
 .about-section p {
   margin-bottom: 0.75rem;
 }
