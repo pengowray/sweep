@@ -9,7 +9,7 @@ import { encodeWAV, generateFilename, buildBwfDescription } from './audio/wav-en
 import {
   applyFades, applyGain, addSilence, repeatWithSilence,
   dBFSToLinear, essOneOctaveFadeSamples, decimateForVisualization,
-  applyEQ, applyDither
+  applyEQ, applyDither, applyNyquistSilence
 } from './utils.js';
 
 self.onmessage = function (event) {
@@ -132,6 +132,11 @@ self.onmessage = function (event) {
     // Phase 3: Apply output level gain
     const linearGain = dBFSToLinear(params.outputLevel != null ? params.outputLevel : -3);
     applyGain(samples, linearGain);
+
+    // Phase 3b: Silence above Nyquist
+    if (params.silenceAboveNyquist) {
+      applyNyquistSilence(samples, params, params.sampleRate);
+    }
 
     // Phase 4: Repetitions (45% - 50%)
     const reps = params.repetitions || 1;

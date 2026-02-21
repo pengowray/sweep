@@ -9,7 +9,7 @@ import { generateWhiteNoise, generatePinkNoise } from './generators/noise.js';
 import { generateMLS, mlsDuration } from './generators/mls.js';
 import { generateSteppedSine, steppedSineDuration, computeSteppedFrequencies } from './generators/stepped-sine.js';
 import { generatePattern, patternDuration } from './generators/pattern.js';
-import { applyFades, applyGain, addSilence, repeatWithSilence, applyEQ } from './utils.js';
+import { applyFades, applyGain, addSilence, repeatWithSilence, applyEQ, applyNyquistSilence } from './utils.js';
 
 // ─── DOM References ───────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -754,6 +754,11 @@ function generateOnMainThread(params) {
       // Gain
       applyGain(samples, dBFSToLinear(params.outputLevel));
 
+      // Silence above Nyquist
+      if (params.silenceAboveNyquist) {
+        applyNyquistSilence(samples, params, params.sampleRate);
+      }
+
       // Repetitions
       const reps = params.repetitions || 1;
       if (reps > 1) {
@@ -862,6 +867,11 @@ function generatePreviewSamples(params, previewRate) {
 
   // Gain
   applyGain(samples, dBFSToLinear(params.outputLevel));
+
+  // Silence above Nyquist
+  if (params.silenceAboveNyquist) {
+    applyNyquistSilence(samples, params, previewRate);
+  }
 
   // Repetitions
   const reps = params.repetitions || 1;

@@ -142,6 +142,134 @@ export function applyGain(samples, linearGain) {
 }
 
 /**
+ * Zero out portions of a signal where the instantaneous frequency exceeds the
+ * Nyquist limit (sampleRate / 2). Applied in-place with a short crossfade at
+ * the boundary to avoid clicks.
+ *
+ * @param {Float64Array} samples - Raw signal (before repetitions/silence padding)
+ * @param {object} params - Generation parameters (signalType, startFreq, endFreq, duration, etc.)
+ * @param {number} sampleRate - The effective sample rate (may differ for preview vs download)
+ */
+export function applyNyquistSilence(samples, params, sampleRate) {
+  const nyquist = sampleRate / 2;
+  const N = samples.length;
+  if (N === 0) return;
+
+  const taperSamples = Math.min(Math.round(0.001 * sampleRate), 64); // ~1ms crossfade
+
+  if (params.signalType === 'ess' || params.signalType === 'linear') {
+    const f1 = params.startFreq;
+    const f2 = params.endFreq;
+    const T = params.duration;
+
+    if (f2 <= nyquist) return; // nothing to silence
+    if (f1 >= nyquist) {
+      // Entire sweep is above Nyquist — silence everything
+      samples.fill(0);
+      return;
+    }
+
+    // Find the sample index where frequency crosses Nyquist
+    let crossingTime;
+    if (params.signalType === 'ess') {
+      // f(t) = f1 * (f2/f1)^(t/T) = nyquist
+      crossingTime = T * Math.log(nyquist / f1) / Math.log(f2 / f1);
+    } else {
+      // f(t) = f1 + (f2-f1)*t/T = nyquist
+      crossingTime = T * (nyquist - f1) / (f2 - f1);
+    }
+
+    const crossingSample = Math.round(crossingTime * sampleRate);
+    if (crossingSample >= N) return;
+
+    // Apply short fade-out before crossing, then zero everything after
+    const fadeStart = Math.max(0, crossingSample - taperSamples);
+    for (let i = fadeStart; i < crossingSample && i < N; i++) {
+      const fade = 0.5 * (1 + Math.cos(Math.PI * (i - fadeStart) / taperSamples));
+      samples[i] *= fade;
+    }
+    for (let i = crossingSample; i < N; i++) {
+      samples[i] = 0;
+    }
+
+  } else if (params.signalType === 'stepped') {
+    // Block structure: each step = dwellSamples + gapSamples
+    const frequencies = _computeSteppedFreqs(params);
+    if (!frequencies) return;
+
+    const dwellSamples = Math.round((params.dwellTime || 0.5) * sampleRate);
+    const gapSamples = Math.round((params.gapTime || 0) * sampleRate);
+    const stepLen = dwellSamples + gapSamples;
+
+    for (let s = 0; s < frequencies.length; s++) {
+      if (frequencies[s] > nyquist) {
+        const start = s * stepLen;
+        const end = Math.min(start + dwellSamples, N);
+        // Fade out over the taper, then zero the rest of the dwell
+        const fadeEnd = Math.min(start + taperSamples, end);
+        for (let i = start; i < fadeEnd; i++) {
+          samples[i] *= 0.5 * (1 + Math.cos(Math.PI * (i - start) / taperSamples));
+        }
+        for (let i = fadeEnd; i < end; i++) {
+          samples[i] = 0;
+        }
+      }
+    }
+
+  } else if (params.signalType === 'pattern') {
+    const sequence = params.patternSequence;
+    if (!sequence || !sequence.length) return;
+
+    let writeIndex = 0;
+    for (const step of sequence) {
+      const onSamples = Math.round((step.on_ms || 0) / 1000 * sampleRate);
+      const offSamples = Math.round((step.off_ms || 0) / 1000 * sampleRate);
+
+      if (step.hz > nyquist) {
+        const end = Math.min(writeIndex + onSamples, N);
+        const fadeEnd = Math.min(writeIndex + taperSamples, end);
+        for (let i = writeIndex; i < fadeEnd; i++) {
+          samples[i] *= 0.5 * (1 + Math.cos(Math.PI * (i - writeIndex) / taperSamples));
+        }
+        for (let i = fadeEnd; i < end; i++) {
+          samples[i] = 0;
+        }
+      }
+
+      writeIndex += onSamples + offSamples;
+    }
+  }
+  // For noise/MLS, no frequency-based silencing is applicable
+}
+
+// Helper: recompute stepped sine frequencies from params without importing
+// the generator module (to keep utils.js dependency-free).
+function _computeSteppedFreqs(params) {
+  const startFreq = Math.max(1, params.startFreq);
+  const endFreq = params.endFreq;
+  const stepsPerOctave = params.stepsPerOctave || 3;
+  const spacing = params.steppedSpacing || 'logarithmic';
+  const frequencies = [];
+
+  if (spacing === 'logarithmic') {
+    const numOctaves = Math.log2(endFreq / startFreq);
+    const totalSteps = Math.round(numOctaves * stepsPerOctave);
+    for (let i = 0; i <= totalSteps; i++) {
+      const freq = startFreq * Math.pow(2, i / stepsPerOctave);
+      if (freq <= endFreq * 1.001) frequencies.push(freq);
+    }
+  } else {
+    const numOctaves = Math.log2(endFreq / startFreq);
+    const totalSteps = Math.max(1, Math.round(numOctaves * stepsPerOctave));
+    const stepSize = (endFreq - startFreq) / totalSteps;
+    for (let i = 0; i <= totalSteps; i++) {
+      frequencies.push(startFreq + i * stepSize);
+    }
+  }
+  return frequencies;
+}
+
+/**
  * Prepend leading silence and append trailing silence.
  * Returns a new array.
  * @param {Float64Array} samples
