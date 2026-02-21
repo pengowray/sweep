@@ -745,27 +745,41 @@ export function applySignalPreset(preset, elements, currentSampleRate) {
 
 /**
  * Detect the browser/device native sample rate via AudioContext.
- * Returns the closest sample rate available in the <select> dropdown,
- * falling back to 48000 if detection fails.
+ * Returns the raw hardware sample rate, falling back to 48000 if detection fails.
  */
-const KNOWN_RATES = [22050, 44100, 48000, 88200, 96000, 176400, 192000, 384000, 768000];
-
 export function detectNativeSampleRate() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const native = ctx.sampleRate;
+    const rate = ctx.sampleRate;
     ctx.close();
-    // Snap to nearest known rate from the <select>
-    let best = KNOWN_RATES[0];
-    let bestDist = Math.abs(native - best);
-    for (const r of KNOWN_RATES) {
-      const d = Math.abs(native - r);
-      if (d < bestDist) { best = r; bestDist = d; }
-    }
-    return best;
+    return rate;
   } catch {
     return 48000;
   }
+}
+
+/**
+ * Ensure the sample rate <select> has an option for the given rate.
+ * If missing, inserts it in sorted order with a "(this device)" label.
+ */
+function ensureSampleRateOption(selectEl, rate) {
+  // Check if it already exists
+  for (const opt of selectEl.options) {
+    if (parseInt(opt.value) === rate) return;
+  }
+  // Insert in sorted position
+  const newOpt = document.createElement('option');
+  newOpt.value = rate;
+  newOpt.textContent = `${rate.toLocaleString()} Hz (this device)`;
+  let inserted = false;
+  for (const opt of selectEl.options) {
+    if (parseInt(opt.value) > rate) {
+      selectEl.insertBefore(newOpt, opt);
+      inserted = true;
+      break;
+    }
+  }
+  if (!inserted) selectEl.appendChild(newOpt);
 }
 
 /**
@@ -775,7 +789,8 @@ export function detectNativeSampleRate() {
 export function resolveFormatPresetDescription(preset) {
   if (preset.sampleRate !== 'detect') return preset.description;
   const rate = detectNativeSampleRate();
-  return `${rate / 1000} kHz / ${preset.bitDepth}-bit ${preset.bitFormat === 'float' ? 'Float' : 'PCM'}`;
+  const kHz = rate % 1000 === 0 ? `${rate / 1000}` : `${(rate / 1000).toFixed(1)}`;
+  return `${kHz} kHz / ${preset.bitDepth}-bit ${preset.bitFormat === 'float' ? 'Float' : 'PCM'}`;
 }
 
 /**
@@ -789,6 +804,7 @@ export function applyFormatPreset(preset, elements) {
     let rate = preset.sampleRate;
     if (rate === 'detect') {
       rate = detectNativeSampleRate();
+      ensureSampleRateOption(elements.sampleRate, rate);
     }
     elements.sampleRate.value = rate;
     elements.sampleRate.dispatchEvent(new Event('input', { bubbles: true }));
