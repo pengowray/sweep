@@ -1,6 +1,6 @@
 // js/app.js — Main controller: UI bindings, state, orchestration
 
-import { SIGNAL_PRESETS, FORMAT_PRESETS, PATTERN_SEQUENCES, applySignalPreset, applyFormatPreset } from './ui/presets.js';
+import { SIGNAL_PRESETS, FORMAT_PRESETS, PATTERN_SEQUENCES, applySignalPreset, applyFormatPreset, resolveFormatPresetDescription } from './ui/presets.js';
 import { Visualizer } from './ui/visualizer.js';
 import { PreviewPlayer } from './audio/preview.js';
 import { estimateFileSize, formatFileSize, dBFSToLinear, essOneOctaveFadeSamples } from './utils.js';
@@ -1093,7 +1093,7 @@ function renderFormatPresets() {
     const btn = document.createElement('button');
     btn.className = 'preset-btn';
     btn.textContent = preset.name;
-    btn.title = preset.description;
+    btn.title = resolveFormatPresetDescription(preset);
     btn.dataset.name = preset.name;
     btn.addEventListener('click', () => {
       applyFormatPreset(preset, els);

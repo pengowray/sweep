@@ -615,6 +615,15 @@ export const PATTERN_SEQUENCES = [
  */
 export const FORMAT_PRESETS = [
   {
+    id: 'this-device',
+    name: 'This Device',
+    description: 'Match your audio hardware',
+    sampleRate: 'detect',
+    bitDepth: 24,
+    bitFormat: 'pcm',
+    outputLevel: -3,
+  },
+  {
     id: 'cd-quality',
     name: 'CD Quality',
     description: '44.1 kHz / 16-bit PCM',
@@ -735,6 +744,41 @@ export function applySignalPreset(preset, elements, currentSampleRate) {
 }
 
 /**
+ * Detect the browser/device native sample rate via AudioContext.
+ * Returns the closest sample rate available in the <select> dropdown,
+ * falling back to 48000 if detection fails.
+ */
+const KNOWN_RATES = [22050, 44100, 48000, 88200, 96000, 176400, 192000, 384000, 768000];
+
+export function detectNativeSampleRate() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const native = ctx.sampleRate;
+    ctx.close();
+    // Snap to nearest known rate from the <select>
+    let best = KNOWN_RATES[0];
+    let bestDist = Math.abs(native - best);
+    for (const r of KNOWN_RATES) {
+      const d = Math.abs(native - r);
+      if (d < bestDist) { best = r; bestDist = d; }
+    }
+    return best;
+  } catch {
+    return 48000;
+  }
+}
+
+/**
+ * Resolve a format preset description, replacing 'detect' sample rates
+ * with the actual detected value.
+ */
+export function resolveFormatPresetDescription(preset) {
+  if (preset.sampleRate !== 'detect') return preset.description;
+  const rate = detectNativeSampleRate();
+  return `${rate / 1000} kHz / ${preset.bitDepth}-bit ${preset.bitFormat === 'float' ? 'Float' : 'PCM'}`;
+}
+
+/**
  * Apply a format preset's values to the UI form elements.
  * Only sets sampleRate, bitDepth, and outputLevel.
  * @param {object} preset
@@ -742,7 +786,11 @@ export function applySignalPreset(preset, elements, currentSampleRate) {
  */
 export function applyFormatPreset(preset, elements) {
   if (preset.sampleRate != null && elements.sampleRate) {
-    elements.sampleRate.value = preset.sampleRate;
+    let rate = preset.sampleRate;
+    if (rate === 'detect') {
+      rate = detectNativeSampleRate();
+    }
+    elements.sampleRate.value = rate;
     elements.sampleRate.dispatchEvent(new Event('input', { bubbles: true }));
     elements.sampleRate.dispatchEvent(new Event('change', { bubbles: true }));
   }
