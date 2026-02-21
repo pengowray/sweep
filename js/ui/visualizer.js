@@ -19,6 +19,10 @@ export class Visualizer {
     this._freqColor = '#8be9fd';
     this._cursorColor = '#ff79c6';
     this._textColor = '#a0a4b8';
+    this._nyquistPreviewColor = '#ffb86c';
+    this._nyquistDownloadColor = '#ff5555';
+    this._aliasZoneColor = '#ff5555';
+    this._freqAliasColor = '#ff5555';
 
     this._lastWaveData = null;
     this._lastWaveDataR = null;
@@ -367,12 +371,16 @@ export class Visualizer {
       ctx.fillText(label, 2, y - 2);
     }
 
+    // Draw Nyquist limit indicators
+    this._drawNyquistIndicators(ctx, w, h, margin, logMin, logMax, params);
+
     // Draw frequency trajectory for each repetition
     ctx.strokeStyle = this._freqColor;
     ctx.lineWidth = 2;
 
     const leadSec = leadMs / 1000;
     const interSilenceSec = interSilenceMs / 1000;
+    const nyquist = params.downloadNyquist || null;
 
     for (let r = 0; r < reps; r++) {
       const repStartSec = leadSec + r * (singleDuration + interSilenceSec);
@@ -391,6 +399,7 @@ export class Visualizer {
 
         for (let i = 0; i < frequencies.length; i++) {
           const freq = frequencies[i];
+          const aboveNyquist = nyquist && freq > nyquist;
           const logF = Math.log10(Math.max(1, freq));
           const y = h - margin - (logF - logMin) / (logMax - logMin) * (h - margin * 2);
 
@@ -399,11 +408,15 @@ export class Visualizer {
           const x1 = repStartX + (stepStartSec / totalSteppedDuration) * (repEndX - repStartX);
           const x2 = repStartX + (stepEndSec / totalSteppedDuration) * (repEndX - repStartX);
 
+          ctx.strokeStyle = aboveNyquist ? this._freqAliasColor : this._freqColor;
+          ctx.setLineDash(aboveNyquist ? [4, 3] : []);
           ctx.beginPath();
           ctx.moveTo(x1, y);
           ctx.lineTo(x2, y);
           ctx.stroke();
         }
+        ctx.setLineDash([]);
+        ctx.strokeStyle = this._freqColor;
       } else if (type === 'pattern' && params.patternSequence && params.patternSequence.length) {
         // Draw each tone burst as a horizontal segment at its frequency
         const sequence = params.patternSequence;
@@ -413,11 +426,14 @@ export class Visualizer {
         for (const step of sequence) {
           const onSec = step.on_ms / 1000;
           const freq = Math.max(1, step.hz);
+          const aboveNyquist = nyquist && freq > nyquist;
           const logF = Math.log10(freq);
           const y = h - margin - (logF - logMin) / (logMax - logMin) * (h - margin * 2);
           const x1 = repStartX + (tSec / totalPatternSec) * (repEndX - repStartX);
           const x2 = repStartX + ((tSec + onSec) / totalPatternSec) * (repEndX - repStartX);
 
+          ctx.strokeStyle = aboveNyquist ? this._freqAliasColor : this._freqColor;
+          ctx.setLineDash(aboveNyquist ? [4, 3] : []);
           ctx.beginPath();
           ctx.moveTo(x1, y);
           ctx.lineTo(Math.max(x1 + 1, x2), y); // ensure at least 1px visible
@@ -425,12 +441,16 @@ export class Visualizer {
 
           tSec += onSec + step.off_ms / 1000;
         }
+        ctx.setLineDash([]);
+        ctx.strokeStyle = this._freqColor;
       } else {
-        // Continuous sweep trajectory
+        // Continuous sweep trajectory — split at Nyquist crossing
+        const numSteps = Math.min(Math.round(repEndX - repStartX), 500);
+        let lastAboveNyquist = null;
+
         ctx.beginPath();
-        const steps = Math.min(Math.round(repEndX - repStartX), 500);
-        for (let i = 0; i <= steps; i++) {
-          const t = i / steps;
+        for (let i = 0; i <= numSteps; i++) {
+          const t = i / numSteps;
           let freq;
 
           if (type === 'exponential') {
@@ -439,14 +459,39 @@ export class Visualizer {
             freq = startFreq + (endFreq - startFreq) * t;
           }
 
+          const aboveNyquist = nyquist ? freq > nyquist : false;
           const logF = Math.log10(Math.max(1, freq));
           const x = repStartX + t * (repEndX - repStartX);
           const y = h - margin - (logF - logMin) / (logMax - logMin) * (h - margin * 2);
 
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
+          if (lastAboveNyquist !== null && aboveNyquist !== lastAboveNyquist) {
+            // Crossed the Nyquist boundary — end current segment
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            if (aboveNyquist) {
+              ctx.strokeStyle = this._freqAliasColor;
+              ctx.setLineDash([4, 3]);
+            } else {
+              ctx.strokeStyle = this._freqColor;
+              ctx.setLineDash([]);
+            }
+          }
+
+          if (lastAboveNyquist === null) {
+            ctx.strokeStyle = aboveNyquist ? this._freqAliasColor : this._freqColor;
+            ctx.setLineDash(aboveNyquist ? [4, 3] : []);
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+
+          lastAboveNyquist = aboveNyquist;
         }
         ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.strokeStyle = this._freqColor;
       }
     }
 
@@ -456,6 +501,80 @@ export class Visualizer {
     ctx.fillText('0s', 4, h - 2);
     const endLabel = totalDuration.toFixed(2) + 's';
     ctx.fillText(endLabel, w - ctx.measureText(endLabel).width - 4, h - 2);
+  }
+
+  _formatFreqLabel(freq) {
+    if (freq >= 1000) {
+      const k = freq / 1000;
+      return (k % 1 === 0 ? k : k.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')) + ' kHz';
+    }
+    return freq + ' Hz';
+  }
+
+  _drawNyquistIndicators(ctx, w, h, margin, logMin, logMax, params) {
+    const { previewNyquist, downloadNyquist } = params;
+    if (!downloadNyquist) return;
+
+    const showBoth = previewNyquist && previewNyquist !== downloadNyquist;
+
+    const freqToY = (freq) => {
+      const logF = Math.log10(Math.max(1, freq));
+      return h - margin - (logF - logMin) / (logMax - logMin) * (h - margin * 2);
+    };
+
+    // Shade aliasing zone above the lowest Nyquist
+    const effectiveNyquist = showBoth ? Math.min(previewNyquist, downloadNyquist) : downloadNyquist;
+    const logEffective = Math.log10(Math.max(1, effectiveNyquist));
+    if (logEffective >= logMin && logEffective <= logMax) {
+      const nyquistY = freqToY(effectiveNyquist);
+      const topY = margin;
+      ctx.save();
+      ctx.fillStyle = this._aliasZoneColor;
+      ctx.globalAlpha = 0.06;
+      ctx.fillRect(0, topY, w, nyquistY - topY);
+      ctx.restore();
+    }
+
+    // Draw Nyquist line(s)
+    const drawLine = (freq, color, label) => {
+      const logF = Math.log10(Math.max(1, freq));
+      if (logF < logMin || logF > logMax) return;
+
+      const y = freqToY(freq);
+
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+      ctx.restore();
+
+      // Right-aligned label with background pill
+      ctx.font = '9px sans-serif';
+      const textW = ctx.measureText(label).width;
+      const px = w - textW - 8;
+      const py = y - 12;
+      ctx.save();
+      ctx.fillStyle = this._bgColor;
+      ctx.globalAlpha = 0.75;
+      ctx.fillRect(px - 2, py, textW + 8, 13);
+      ctx.restore();
+      ctx.fillStyle = color;
+      ctx.fillText(label, px + 2, y - 2);
+    };
+
+    if (showBoth) {
+      drawLine(previewNyquist, this._nyquistPreviewColor,
+        `Preview Nyquist ${this._formatFreqLabel(previewNyquist)}`);
+      drawLine(downloadNyquist, this._nyquistDownloadColor,
+        `Download Nyquist ${this._formatFreqLabel(downloadNyquist)}`);
+    } else {
+      drawLine(downloadNyquist, this._nyquistDownloadColor,
+        `Nyquist ${this._formatFreqLabel(downloadNyquist)}`);
+    }
   }
 
   /**

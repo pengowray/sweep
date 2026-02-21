@@ -374,6 +374,9 @@ function updateFrequencyPlot() {
   let duration = parseFloat(els.duration.value) || 5;
   const interSilence = parseFloat(els.interSweepSilence.value) || 0;
 
+  const sampleRate = parseInt(els.sampleRate.value);
+  const previewRate = Math.min(sampleRate, 48000);
+
   const plotParams = {
     startFreq: parseFloat(els.startFreq.value),
     endFreq: parseFloat(els.endFreq.value),
@@ -382,6 +385,8 @@ function updateFrequencyPlot() {
     trailSilence: parseFloat(els.trailSilence.value) || 0,
     repetitions: reps,
     interSweepSilence: interSilence,
+    downloadNyquist: sampleRate / 2,
+    previewNyquist: previewRate / 2,
   };
 
   if (type === 'stepped') {
