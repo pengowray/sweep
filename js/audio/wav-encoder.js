@@ -34,7 +34,10 @@ function writeFixedString(bytes, offset, str, maxLen) {
 function encodeBextPayload(meta) {
   const codingHistoryBytes = new TextEncoder().encode(meta.codingHistory || '');
   const fixedSize = 602;
-  const totalSize = fixedSize + codingHistoryBytes.length;
+  // Pad to even length so the chunk size is always even — many readers
+  // (e.g. hound) don't handle RIFF word-alignment padding after odd-length chunks.
+  const rawSize = fixedSize + codingHistoryBytes.length;
+  const totalSize = rawSize + (rawSize % 2);
 
   const buffer = new ArrayBuffer(totalSize);
   const view = new DataView(buffer);
