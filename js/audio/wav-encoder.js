@@ -1,6 +1,6 @@
 // js/audio/wav-encoder.js — Manual binary WAV file construction
 // Supports 16-bit PCM, 24-bit PCM, 32-bit IEEE Float
-// Uses WAVE_FORMAT_EXTENSIBLE for 24-bit and 32-bit
+// Uses WAVE_FORMAT_IEEE_FLOAT for 32-bit float
 // Includes optional BWF bext metadata chunk
 
 /**
@@ -164,7 +164,6 @@ export function encodeWAV(samples, params) {
   const blockAlign = bytesPerSample * numChannels;
   const avgBytesPerSec = sampleRate * blockAlign;
   const isFloat = (bitDepth === 32 && format === 'float');
-  const isExtensible = (bitDepth === 24 || bitDepth === 32);
 
   // Prepare channel data arrays
   let channelData;
@@ -183,12 +182,12 @@ export function encodeWAV(samples, params) {
   const totalFrames = samples.length;
   const dataSize = totalFrames * blockAlign;
 
-  // fmt chunk payload size
-  const fmtPayloadSize = isExtensible ? 40 : 16;
+  // fmt chunk payload size (18 for float adds cbSize field)
+  const fmtPayloadSize = isFloat ? 18 : 16;
   const fmtChunkSize = 8 + fmtPayloadSize;
 
-  // fact chunk (required for extensible and float)
-  const needsFact = isExtensible || isFloat;
+  // fact chunk (required for non-PCM formats)
+  const needsFact = isFloat;
   const factChunkSize = needsFact ? 12 : 0;
 
   // bext chunk
@@ -213,20 +212,11 @@ export function encodeWAV(samples, params) {
   view.setUint32(offset, riffPayloadSize, true); offset += 4;
   writeString(view, offset, 'WAVE'); offset += 4;
 
-  // ---- bext chunk (optional BWF metadata) ----
-  if (bextPayload) {
-    writeString(view, offset, 'bext'); offset += 4;
-    view.setUint32(offset, bextPayload.byteLength, true); offset += 4;
-    new Uint8Array(buffer, offset, bextPayload.byteLength).set(new Uint8Array(bextPayload));
-    offset += bextPayload.byteLength;
-    if (bextPayload.byteLength % 2 !== 0) offset += 1; // pad byte
-  }
-
-  // ---- fmt chunk ----
+  // ---- fmt chunk (must be first sub-chunk for compatibility) ----
   writeString(view, offset, 'fmt '); offset += 4;
   view.setUint32(offset, fmtPayloadSize, true); offset += 4;
 
-  const wFormatTag = isExtensible ? 0xFFFE : (isFloat ? 0x0003 : 0x0001);
+  const wFormatTag = isFloat ? 0x0003 : 0x0001;
   view.setUint16(offset, wFormatTag, true); offset += 2;
   view.setUint16(offset, numChannels, true); offset += 2;
   view.setUint32(offset, sampleRate, true); offset += 4;
@@ -234,26 +224,17 @@ export function encodeWAV(samples, params) {
   view.setUint16(offset, blockAlign, true); offset += 2;
   view.setUint16(offset, bitDepth, true); offset += 2;
 
-  if (isExtensible) {
-    // cbSize: 22 bytes of extension data
-    view.setUint16(offset, 22, true); offset += 2;
-    // wValidBitsPerSample
-    view.setUint16(offset, bitDepth, true); offset += 2;
-    // dwChannelMask
-    const channelMask = numChannels === 1 ? 0x4 : 0x3; // FC or FL|FR
-    view.setUint32(offset, channelMask, true); offset += 4;
+  if (isFloat) {
+    view.setUint16(offset, 0, true); offset += 2; // cbSize = 0
+  }
 
-    // SubFormat GUID (16 bytes)
-    // PCM:   {00000001-0000-0010-8000-00AA00389B71}
-    // FLOAT: {00000003-0000-0010-8000-00AA00389B71}
-    const subFormatCode = isFloat ? 0x0003 : 0x0001;
-    view.setUint32(offset, subFormatCode, true); offset += 4;
-    view.setUint16(offset, 0x0000, true); offset += 2;
-    view.setUint16(offset, 0x0010, true); offset += 2;
-    const guidTail = [0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71];
-    for (const b of guidTail) {
-      view.setUint8(offset, b); offset += 1;
-    }
+  // ---- bext chunk (optional BWF metadata) ----
+  if (bextPayload) {
+    writeString(view, offset, 'bext'); offset += 4;
+    view.setUint32(offset, bextPayload.byteLength, true); offset += 4;
+    new Uint8Array(buffer, offset, bextPayload.byteLength).set(new Uint8Array(bextPayload));
+    offset += bextPayload.byteLength;
+    if (bextPayload.byteLength % 2 !== 0) offset += 1; // pad byte
   }
 
   // ---- fact chunk ----
